@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: monitoring
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U avito_tester -d pr_reviews" ]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  migrate:
+    image: migrate/migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://admin:admin@db:5432/pr_reviews?sslmode=disable",
+        "up"
+      ]
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_DSN: "postgres://admin:admin@db:5432/pr_reviews?sslmode=disable"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.toml:/app/config.toml
+
+volumes:
+  pg_data:
