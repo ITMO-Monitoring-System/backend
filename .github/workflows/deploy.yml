@@ -1,0 +1,36 @@
+name: Simple Docker Deploy
+
+on:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup SSH and Deploy
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          
+          ssh ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
+            cd /opt/app
+          
+            # Останавливаем и удаляем старый контейнер
+            docker-compose down || true
+          
+            # Обновляем код
+            git pull origin main
+          
+            # Пересобираем и запускаем
+            docker-compose up -d --build
+          
+            # Проверяем
+            docker ps
+          "
