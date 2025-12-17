@@ -1,4 +1,4 @@
-name: Deploy with SSH Action
+name: Deploy with Correct Key
 
 on:
   push:
@@ -12,23 +12,70 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.5
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-              set -e
-              cd /opt/app
-              
-              # Если директории нет - создаем
-              if [ ! -d '.git' ]; then
-                git clone https://github.com/ITMO-Monitoring-System/backend .
-              fi
-              
-              git pull origin main
-              docker-compose down || true
-              docker-compose up -d --build
-              docker-compose ps
+      - name: Setup SSH with PEM key
+        run: |
+          mkdir -p ~/.ssh
+          
+          # Сохраняем ключ
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          
+          # ОЧЕНЬ ВАЖНО: Удаляем лишние пробелы и символы
+          sed -i 's/\\r//g' ~/.ssh/id_rsa
+          sed -i 's/\\n/\n/g' ~/.ssh/id_rsa
+          sed -i 's/[[:space:]]*$//' ~/.ssh/id_rsa
+          
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Проверяем ключ
+          echo "=== Проверка ключа ==="
+          file ~/.ssh/id_rsa
+          head -n 1 ~/.ssh/id_rsa
+          echo "=== Конец проверки ==="
+          
+          # Добавляем хост
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          
+          # Тестируем
+          echo "Тестируем SSH..."
+          ssh -v -i ~/.ssh/id_rsa \
+              -o ConnectTimeout=5 \
+              ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
+              "echo '✅ SSH успешно'" || echo "❌ Ошибка SSH"
+
+      - name: Deploy
+        run: |
+          ssh -i ~/.ssh/id_rsa \
+              -o ConnectTimeout=10 \
+              ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
+            set -e
+          
+            echo '1. Проверяем директорию...'
+            if [ ! -d '/opt/app' ]; then
+              sudo mkdir -p /opt/app
+              sudo chown $USER:$USER /opt/app
+            fi
+          
+            cd /opt/app
+          
+            echo '2. Проверяем репозиторий...'
+            if [ ! -d '.git' ]; then
+              git clone https://github.com/ITMO-Monitoring-System/backend .
+            fi
+          
+            echo '3. Обновляем код...'
+            git fetch origin
+            git reset --hard origin/main
+            git pull origin main
+          
+            echo '4. Останавливаем Docker...'
+            docker-compose down || true
+          
+            echo '5. Запускаем приложение...'
+            docker-compose up -d --build
+          
+            echo '6. Проверяем...'
+            sleep 3
+            docker-compose ps
+          
+            echo '🎉 Деплой завершен!'
+          "
