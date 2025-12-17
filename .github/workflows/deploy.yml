@@ -1,8 +1,8 @@
-name: Simple Docker Deploy
+name: Deploy with SSH Action
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
 
 jobs:
   deploy:
@@ -12,25 +12,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Setup SSH and Deploy
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-          
-          ssh ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
-            cd /opt/app
-          
-            # Останавливаем и удаляем старый контейнер
-            docker-compose down || true
-          
-            # Обновляем код
-            git pull origin main
-          
-            # Пересобираем и запускаем
-            docker-compose up -d --build
-          
-            # Проверяем
-            docker ps
-          "
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+              set -e
+              cd /opt/app
+              
+              # Если директории нет - создаем
+              if [ ! -d '.git' ]; then
+                git clone https://github.com/ITMO-Monitoring-System/backend .
+              fi
+              
+              git pull origin main
+              docker-compose down || true
+              docker-compose up -d --build
+              docker-compose ps
