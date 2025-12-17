@@ -1,81 +1,60 @@
-name: Deploy with Correct Key
+name: Deploy Go Backend
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write   # обязательно для push в GHCR
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      # 1. Забираем код
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Setup SSH with PEM key
+      # 2. Логин в GitHub Container Registry
+      - name: Login to GHCR
         run: |
-          mkdir -p ~/.ssh
-          
-          # Сохраняем ключ
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          
-          # ОЧЕНЬ ВАЖНО: Удаляем лишние пробелы и символы
-          sed -i 's/\\r//g' ~/.ssh/id_rsa
-          sed -i 's/\\n/\n/g' ~/.ssh/id_rsa
-          sed -i 's/[[:space:]]*$//' ~/.ssh/id_rsa
-          
-          chmod 600 ~/.ssh/id_rsa
-          
-          # Проверяем ключ
-          echo "=== Проверка ключа ==="
-          file ~/.ssh/id_rsa
-          head -n 1 ~/.ssh/id_rsa
-          echo "=== Конец проверки ==="
-          
-          # Добавляем хост
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
-          
-          # Тестируем
-          echo "Тестируем SSH..."
-          ssh -v -i ~/.ssh/id_rsa \
-              -o ConnectTimeout=5 \
-              ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
-              "echo '✅ SSH успешно'" || echo "❌ Ошибка SSH"
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
+            -u "${{ github.actor }}" \
+            --password-stdin
 
-      - name: Deploy
+      # 3. Сборка Docker-образа
+      - name: Build Docker image
         run: |
-          ssh -i ~/.ssh/id_rsa \
-              -o ConnectTimeout=10 \
-              ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
-            set -e
-          
-            echo '1. Проверяем директорию...'
-            if [ ! -d '/opt/app' ]; then
-              sudo mkdir -p /opt/app
-              sudo chown $USER:$USER /opt/app
-            fi
-          
-            cd /opt/app
-          
-            echo '2. Проверяем репозиторий...'
-            if [ ! -d '.git' ]; then
-              git clone https://github.com/ITMO-Monitoring-System/backend .
-            fi
-          
-            echo '3. Обновляем код...'
-            git fetch origin
-            git reset --hard origin/main
-            git pull origin main
-          
-            echo '4. Останавливаем Docker...'
-            docker-compose down || true
-          
-            echo '5. Запускаем приложение...'
-            docker-compose up -d --build
-          
-            echo '6. Проверяем...'
-            sleep 3
-            docker-compose ps
-          
-            echo '🎉 Деплой завершен!'
-          "
+          IMAGE=ghcr.io/${{ github.repository }}:latest
+          docker build -t $IMAGE .
+
+      # 4. Публикация образа
+      - name: Push Docker image
+        run: |
+          IMAGE=ghcr.io/${{ github.repository }}:latest
+          docker push $IMAGE
+
+      # 5. Деплой на сервер по SSH
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+              set -e
+  
+              cd /opt/app
+  
+              echo "Pull new images"
+              docker compose pull
+  
+              echo "Restart services"
+              docker compose up -d
+  
+              echo "Cleanup old images"
+              docker image prune -f
