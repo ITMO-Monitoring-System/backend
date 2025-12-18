@@ -7,58 +7,55 @@ on:
 
 permissions:
   contents: read
-  packages: write   # обязательно для push в GHCR
+  packages: write   # нужно для push в GHCR
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Забираем код
+      # 1. Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Логин в GitHub Container Registry
+      # 2. Login to GHCR (без создания токенов)
       - name: Login to GHCR
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
             -u "${{ github.actor }}" \
             --password-stdin
 
-      # 3. Сборка Docker-образа
+      # 3. Build image (ИМЯ ЖЁСТКО ЗАДАНО, lowercase)
       - name: Build Docker image
         run: |
-          IMAGE=ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]'):latest
+          IMAGE=ghcr.io/itmo-monitoring-system/backend:latest
           docker build -t $IMAGE .
 
-      # 4. Публикация образа
+      # 4. Push image
       - name: Push Docker image
         run: |
-          IMAGE=ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]'):latest
+          IMAGE=ghcr.io/itmo-monitoring-system/backend:latest
           docker push $IMAGE
 
-      # 5. Деплой на сервер по SSH
+      # 5. Deploy on server
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
+          host: ${{ secrets.SSH_HOST }}        # 89.111.170.130
+          username: ${{ secrets.SSH_USERNAME }}    # deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}           # приватный SSH ключ
+          port: ${{ secrets.SSH_PORT }}         # 22
 
-          command_timeout: 30m
           timeout: 30m
+          command_timeout: 30m
 
           script: |
-              set -e
-  
-              cd /opt/app
-  
-              echo "Pull new images"
-              docker compose pull
-  
-              echo "Restart services"
-              docker compose up -d
-  
-              echo "Cleanup old images"
-              docker image prune -f
+            set -e
+
+            cd /opt/apps/backend
+
+            docker compose pull
+
+            docker compose up -d
+
+            docker image prune -f
