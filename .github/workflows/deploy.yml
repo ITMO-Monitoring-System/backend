@@ -1,61 +1,40 @@
-name: Deploy Go Backend
+name: Deploy via rsync
 
 on:
   push:
     branches:
       - main
 
-permissions:
-  contents: read
-  packages: write   # нужно для push в GHCR
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Login to GHCR (без создания токенов)
-      - name: Login to GHCR
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
-            -u "${{ github.actor }}" \
-            --password-stdin
-
-      # 3. Build image (ИМЯ ЖЁСТКО ЗАДАНО, lowercase)
-      - name: Build Docker image
-        run: |
-          IMAGE=ghcr.io/itmo-monitoring-system/backend:latest
-          docker build -t $IMAGE .
-
-      # 4. Push image
-      - name: Push Docker image
-        run: |
-          IMAGE=ghcr.io/itmo-monitoring-system/backend:latest
-          docker push $IMAGE
-
-      # 5. Deploy on server
-      - name: Deploy on server
+      - name: Deploy files via rsync
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}        # 89.111.170.130
           username: ${{ secrets.SSH_USERNAME }}    # deploy
-          key: ${{ secrets.SSH_PRIVATE_KEY }}           # приватный SSH ключ
-          port: ${{ secrets.SSH_PORT }}         # 22
-
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}        # 22
           timeout: 30m
           command_timeout: 30m
 
           script: |
             set -e
 
+            echo "Sync files"
+            rsync -az --delete \
+              --exclude=".git" \
+              --exclude=".github" \
+              ./ /opt/app
+
+            echo "Restart services"
             cd /opt/app
+            docker compose up -d --build
 
-            docker compose pull
-
-            docker compose up -d
-
+            echo "Cleanup"
             docker image prune -f
