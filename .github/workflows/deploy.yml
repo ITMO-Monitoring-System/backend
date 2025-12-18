@@ -10,31 +10,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy files via rsync
+      # 2. Копируем код на сервер
+      - name: Sync files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+            host: ${{ secrets.SSH_HOST }}      # 89.111.170.130
+            username: ${{ secrets.SSH_USERNAME }}  # deploy
+            key: ${{ secrets.SSH_PRIVATE_KEY }}
+            port: ${{ secrets.SSH_PORT }}      # 22
+            source: "."
+            target: "/opt/backend"
+
+      # 3. Перезапускаем сервисы
+      - name: Restart services
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SSH_HOST }}        # 89.111.170.130
-          username: ${{ secrets.SSH_USERNAME }}    # deploy
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}        # 22
+          port: ${{ secrets.SSH_PORT }}
           timeout: 30m
           command_timeout: 30m
 
           script: |
             set -e
-
-            echo "Sync files"
-            rsync -az --delete \
-              --exclude=".git" \
-              --exclude=".github" \
-              ./ /opt/app
-
-            echo "Restart services"
-            cd /opt/app
+            cd /opt/backend
             docker compose up -d --build
-
-            echo "Cleanup"
             docker image prune -f
