@@ -10,7 +10,10 @@ create table if not exists cores.users (
 create table if not exists cores.face_images (
     student_id TEXT PRIMARY KEY,
     left_face bytea NOT NULL,
+    left_face_embedding FLOAT4[] NOT NULL,
     right_face bytea NOT NULL,
+    right_face_embedding float4[] NOT NULL,
     full_face bytea NOT NULL,
+    full_face_embedding float4[] NOT NULL,
     FOREIGN KEY (student_id) REFERENCES cores.users(isu)
-)
+);
