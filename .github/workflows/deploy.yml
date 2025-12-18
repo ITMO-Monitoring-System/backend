@@ -52,7 +52,7 @@ jobs:
           script: |
             set -e
 
-            cd /opt/apps/backend
+            cd /opt/app
 
             docker compose pull
 
