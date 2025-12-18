@@ -30,7 +30,7 @@ services:
       ]
 
   app:
-    image: ghcr.io/itmo-monitoring-system/backend:latest
+    build: .
     container_name: backend
     restart: unless-stopped
     depends_on:
