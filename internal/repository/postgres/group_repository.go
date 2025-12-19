@@ -2,8 +2,10 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"monitoring_backend/internal/domain"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -28,7 +30,15 @@ func (r *groupRepository) GetByCode(ctx context.Context, code string) (domain.Gr
 		&group.DepartmentID,
 	)
 
-	return group, err
+	if errors.Is(err, pgx.ErrNoRows) {
+		return group, domain.ErrGroupNotFound
+	}
+
+	if err != nil {
+		return group, err
+	}
+
+	return group, nil
 }
 
 func (r *groupRepository) ListByDepartment(ctx context.Context, departmentID int64) ([]domain.Group, error) {
@@ -54,5 +64,13 @@ func (r *groupRepository) ListByDepartment(ctx context.Context, departmentID int
 		groups = append(groups, group)
 	}
 
-	return groups, rows.Err()
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrGroupsNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return groups, nil
 }

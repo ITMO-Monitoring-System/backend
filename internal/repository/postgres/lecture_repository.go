@@ -2,15 +2,17 @@ package postgres
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"monitoring_backend/internal/domain"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type lectureRepository struct {
 	db *pgxpool.Pool
 }
 
+// TODO допроверять
 func NewLectureRepository(db *pgxpool.Pool) LectureRepository {
 	return &lectureRepository{db: db}
 }

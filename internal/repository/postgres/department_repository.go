@@ -2,8 +2,11 @@ package postgres
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"errors"
 	"monitoring_backend/internal/domain"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type departmentRepository struct {
@@ -29,7 +32,15 @@ func (r *departmentRepository) GetByID(ctx context.Context, id int64) (domain.De
 		&dept.Alias,
 	)
 
-	return dept, err
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dept, domain.ErrorDepartmentNotFound
+	}
+
+	if err != nil {
+		return dept, err
+	}
+
+	return dept, nil
 }
 
 func (r *departmentRepository) GetByCode(ctx context.Context, code string) (domain.Department, error) {
@@ -47,10 +58,18 @@ func (r *departmentRepository) GetByCode(ctx context.Context, code string) (doma
 		&dept.Alias,
 	)
 
-	return dept, err
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dept, domain.ErrorDepartmentNotFound
+	}
+
+	if err != nil {
+		return dept, err
+	}
+
+	return dept, nil
 }
 
-func (r *departmentRepository) List(ctx context.Context, limit, offset int) ([]domain.Department, error) {
+func (r *departmentRepository) List(ctx context.Context, limit, offset int) (*domain.Departments, error) {
 	query := `
         SELECT id, code, name, alias
         FROM universities_data.departments
@@ -58,7 +77,7 @@ func (r *departmentRepository) List(ctx context.Context, limit, offset int) ([]d
         LIMIT $1 OFFSET $2
     `
 
-	rows, err := r.db.Query(ctx, query, limit, offset)
+	rows, err := r.db.Query(ctx, query, limit+1, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -73,5 +92,22 @@ func (r *departmentRepository) List(ctx context.Context, limit, offset int) ([]d
 		departments = append(departments, dept)
 	}
 
-	return departments, rows.Err()
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrorDepartmentsNotFound
+	}
+
+	if rows.Err() != nil {
+		return nil, err
+	}
+
+	var deps domain.Departments
+	if len(departments) > limit {
+		deps.HasMore = true
+		deps.Departments = departments[:limit]
+	} else {
+		deps.HasMore = false
+		deps.Departments = departments
+	}
+
+	return &deps, nil
 }

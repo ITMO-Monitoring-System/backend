@@ -2,9 +2,12 @@ package postgres
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"errors"
 	"monitoring_backend/internal/domain"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type lectureGroupRepository struct {
@@ -16,23 +19,51 @@ func NewLectureGroupRepository(db *pgxpool.Pool) LectureGroupRepository {
 }
 
 func (r *lectureGroupRepository) AddGroup(ctx context.Context, lectureID int64, groupCode string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback(ctx)
+		} else if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+		err = tx.Commit(ctx)
+	}()
+
 	query := `
         INSERT INTO universities_data.lectures_groups (id, lecture_id, group_id)
         VALUES (nextval('lectures_groups_id_seq'), $1, $2)
         ON CONFLICT (lecture_id, group_id) DO NOTHING
     `
 
-	_, err := r.db.Exec(ctx, query, lectureID, groupCode)
+	_, err = tx.Exec(ctx, query, lectureID, groupCode)
 	return err
 }
 
 func (r *lectureGroupRepository) RemoveGroup(ctx context.Context, lectureID int64, groupCode string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback(ctx)
+		} else if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+		err = tx.Commit(ctx)
+	}()
+
 	query := `
         DELETE FROM universities_data.lectures_groups 
         WHERE lecture_id = $1 AND group_id = $2
     `
 
-	_, err := r.db.Exec(ctx, query, lectureID, groupCode)
+	_, err = tx.Exec(ctx, query, lectureID, groupCode)
 	return err
 }
 
@@ -59,9 +90,18 @@ func (r *lectureGroupRepository) ListGroups(ctx context.Context, lectureID int64
 		groups = append(groups, groupCode)
 	}
 
-	return groups, rows.Err()
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrGroupsNotFound
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return groups, nil
 }
 
+// TODO как будто тоже лучше с лимитом
 func (r *lectureGroupRepository) ListLecturesByGroup(ctx context.Context, groupCode string, from, to time.Time) ([]domain.Lecture, error) {
 	query := `
         SELECT l.id, l.date, l.subject_id, l.teacher_id
