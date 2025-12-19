@@ -11,6 +11,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	_ "monitoring_backend/docs"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"monitoring_backend/internal/app"
