@@ -27,7 +27,7 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	wsHub := ws.NewHub()
 	lectureManager := lecture.NewManager(wsHub, cfg.Rabbit.AMPQURL)
 
-	r := httpRouter.New(cfg, h, wsHub, lectureManager)
+	r := httpRouter.New(h, wsHub, lectureManager)
 
 	return &App{
 		cfg: cfg,

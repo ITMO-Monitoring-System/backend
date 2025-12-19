@@ -1,7 +1,6 @@
 package router
 
 import (
-	"monitoring_backend/internal/config"
 	"monitoring_backend/internal/http/handlers"
 	"monitoring_backend/internal/http/response"
 	"monitoring_backend/internal/lecture"
@@ -12,7 +11,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func New(cfg *config.Config, h *handlers.Handler, wsHub *ws.Hub, lectureManager *lecture.Manager) *mux.Router {
+func New(h *handlers.Handler, wsHub *ws.Hub, lectureManager *lecture.Manager) *mux.Router {
 	r := mux.NewRouter()
 
 	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
