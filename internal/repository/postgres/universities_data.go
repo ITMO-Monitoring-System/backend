@@ -10,7 +10,7 @@ import (
 type DepartmentRepository interface {
 	GetByID(ctx context.Context, id int64) (domain.Department, error)
 	GetByCode(ctx context.Context, code string) (domain.Department, error)
-	List(ctx context.Context, limit, offset int) ([]domain.Department, error)
+	List(ctx context.Context, limit, offset int) (*domain.Departments, error)
 }
 
 type GroupRepository interface {
