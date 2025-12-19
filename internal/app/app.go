@@ -2,14 +2,18 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"monitoring_backend/internal/config"
+	"monitoring_backend/internal/lecture"
+	"monitoring_backend/internal/ws"
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	httpHandler "monitoring_backend/internal/http/handlers"
 	httpRouter "monitoring_backend/internal/http/router"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type App struct {
@@ -20,7 +24,10 @@ type App struct {
 
 func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	h := httpHandler.New(db)
-	r := httpRouter.New(cfg, h)
+	wsHub := ws.NewHub()
+	lectureManager := lecture.NewManager(wsHub, cfg.Rabbit.AMPQURL)
+
+	r := httpRouter.New(cfg, h, wsHub, lectureManager)
 
 	return &App{
 		cfg: cfg,
@@ -49,7 +56,7 @@ func (a *App) Run(ctx context.Context) error {
 		return a.server.Shutdown(shCtx)
 
 	case err := <-errCh:
-		if err == http.ErrServerClosed {
+		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
 		return err

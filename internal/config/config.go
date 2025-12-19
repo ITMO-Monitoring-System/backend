@@ -6,6 +6,11 @@ type Config struct {
 	HTTP     HTTPConfig     `toml:"http"`
 	Postgres PostgresConfig `toml:"postgres"`
 	Logger   LoggerConfig   `toml:"logger"`
+	Rabbit   RabbitConfig   `toml:"rabbit"`
+}
+
+type RabbitConfig struct {
+	AMPQURL string `toml:"ampq_url"`
 }
 
 // AppConfig общие сведения о приложении (имя, окружение).

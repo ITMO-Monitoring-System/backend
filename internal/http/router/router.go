@@ -4,12 +4,15 @@ import (
 	"monitoring_backend/internal/config"
 	"monitoring_backend/internal/http/handlers"
 	"monitoring_backend/internal/http/response"
+	"monitoring_backend/internal/lecture"
+	"monitoring_backend/internal/ws"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func New(cfg *config.Config, h *handlers.Handler) *mux.Router {
+func New(cfg *config.Config, h *handlers.Handler, wsHub *ws.Hub, lectureManager *lecture.Manager) *mux.Router {
 	r := mux.NewRouter()
 
 	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -18,9 +21,13 @@ func New(cfg *config.Config, h *handlers.Handler) *mux.Router {
 
 	r.HandleFunc("/health", h.Health).Methods(http.MethodGet)
 
-	// TODO: add endpoints
+	r.HandleFunc("/ws", ws.Handler(wsHub))
+
 	api := r.PathPrefix("/api").Subrouter()
-	_ = api
+
+	api.HandleFunc("/lecture/start", lectureManager.StartLecture).Methods(http.MethodPost)
+
+	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
 	return r
 }

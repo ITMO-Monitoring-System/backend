@@ -1,0 +1,171 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Backend for lecture monitoring via RabbitMQ and WebSocket",
+        "title": "Monitoring Backend API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/api/lecture/start": {
+            "post": {
+                "description": "Запускает обработку очереди RabbitMQ для лекции",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "lecture"
+                ],
+                "summary": "Start lecture processing",
+                "parameters": [
+                    {
+                        "description": "Lecture and RabbitMQ queue",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/lecture.StartLectureRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Consumer already running",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "202": {
+                        "description": "Consumer started",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/lecture/stop": {
+            "post": {
+                "description": "Stops RabbitMQ consumer and WebSocket broadcasting for the specified lecture.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "lecture"
+                ],
+                "summary": "Stop lecture processing",
+                "parameters": [
+                    {
+                        "description": "Lecture identifier",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/lecture.StopLectureRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Lecture not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Проверка доступности сервиса",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/ws": {
+            "get": {
+                "description": "Establishes a WebSocket connection.\nAfter connection the client sends JSON messages:\n- action=subscribe with lecture_id to start receiving data\n- action=unsubscribe with lecture_id to stop receiving data\nThe server sends lecture data only for subscribed lectures.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "websocket"
+                ],
+                "summary": "WebSocket connection for lecture streaming",
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "lecture.StartLectureRequest": {
+            "type": "object",
+            "properties": {
+                "lecture_id": {
+                    "type": "integer"
+                },
+                "queue": {
+                    "type": "string"
+                }
+            }
+        },
+        "lecture.StopLectureRequest": {
+            "type": "object",
+            "properties": {
+                "lecture_id": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}

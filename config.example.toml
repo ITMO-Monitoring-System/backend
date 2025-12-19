@@ -9,3 +9,6 @@ user = "admin"
 password = "admin"
 database = "monitoring"
 sslmode = "disable"
+
+[rabbit]
+ampq_url = ""

@@ -1,0 +1,117 @@
+basePath: /
+definitions:
+  lecture.StartLectureRequest:
+    properties:
+      lecture_id:
+        type: integer
+      queue:
+        type: string
+    type: object
+  lecture.StopLectureRequest:
+    properties:
+      lecture_id:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: Backend for lecture monitoring via RabbitMQ and WebSocket
+  title: Monitoring Backend API
+  version: "1.0"
+paths:
+  /api/lecture/start:
+    post:
+      consumes:
+      - application/json
+      description: Запускает обработку очереди RabbitMQ для лекции
+      parameters:
+      - description: Lecture and RabbitMQ queue
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/lecture.StartLectureRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Consumer already running
+          schema:
+            type: string
+        "202":
+          description: Consumer started
+          schema:
+            type: string
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+      summary: Start lecture processing
+      tags:
+      - lecture
+  /api/lecture/stop:
+    post:
+      consumes:
+      - application/json
+      description: Stops RabbitMQ consumer and WebSocket broadcasting for the specified
+        lecture.
+      parameters:
+      - description: Lecture identifier
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/lecture.StopLectureRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+        "400":
+          description: Invalid request payload
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Lecture not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Stop lecture processing
+      tags:
+      - lecture
+  /health:
+    get:
+      description: Проверка доступности сервиса
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Health check
+      tags:
+      - system
+  /ws:
+    get:
+      description: |-
+        Establishes a WebSocket connection.
+        After connection the client sends JSON messages:
+        - action=subscribe with lecture_id to start receiving data
+        - action=unsubscribe with lecture_id to stop receiving data
+        The server sends lecture data only for subscribed lectures.
+      produces:
+      - application/json
+      responses:
+        "101":
+          description: Switching Protocols
+          schema:
+            type: string
+      summary: WebSocket connection for lecture streaming
+      tags:
+      - websocket
+swagger: "2.0"

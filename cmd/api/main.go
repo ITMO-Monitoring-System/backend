@@ -1,3 +1,7 @@
+// @title Monitoring Backend API
+// @version 1.0
+// @description Backend for lecture monitoring via RabbitMQ and WebSocket
+// @BasePath /
 package main
 
 import (
@@ -27,6 +31,10 @@ func main() {
 		log.Fatalf("failed to connect postgres: %v", err)
 	}
 	defer db.Close()
+
+	if db.Ping(ctx) != nil {
+		log.Fatalf("failed to ping postgres: %v", err)
+	}
 
 	a := app.New(cfg, db)
 
