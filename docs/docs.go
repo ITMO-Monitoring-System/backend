@@ -135,7 +135,7 @@ const docTemplate = `{
         },
         "/ws": {
             "get": {
-                "description": "Establishes a WebSocket connection.\nAfter connection the client sends JSON messages:\n- action=subscribe with lecture_id to start receiving data\n- action=unsubscribe with lecture_id to stop receiving data\nThe server sends lecture data only for subscribed lectures.",
+                "description": "Establishes a WebSocket connection for real-time lecture data streaming.\n\nConnection flow:\n1. Client opens WebSocket connection to this endpoint.\n2. After connection client sends control messages to manage subscriptions.\n3. Server sends data only for lectures the client is subscribed to.\n\nClient control messages:\n- Subscribe to lecture: action=subscribe, lecture_id=\u003clecture identifier\u003e\n- Unsubscribe from lecture: action=unsubscribe, lecture_id=\u003clecture identifier\u003e\n\nSubscription rules:\n- One client may subscribe to multiple lectures.\n- Unsubscribed lectures will no longer send data.\n- If the client disconnects, all subscriptions are removed automatically.\n\nServer messages:\n- Server sends lecture data as JSON messages.\n- Message payload corresponds to data received from RabbitMQ.\n- Exact message schema depends on the physical model and may be extended in the future.\n\nFuture extensions:\n- Additional message types (errors, control events).\n- Extended payload schemas.",
                 "produces": [
                     "application/json"
                 ],

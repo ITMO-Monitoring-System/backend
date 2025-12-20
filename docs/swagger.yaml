@@ -99,11 +99,30 @@ paths:
   /ws:
     get:
       description: |-
-        Establishes a WebSocket connection.
-        After connection the client sends JSON messages:
-        - action=subscribe with lecture_id to start receiving data
-        - action=unsubscribe with lecture_id to stop receiving data
-        The server sends lecture data only for subscribed lectures.
+        Establishes a WebSocket connection for real-time lecture data streaming.
+
+        Connection flow:
+        1. Client opens WebSocket connection to this endpoint.
+        2. After connection client sends control messages to manage subscriptions.
+        3. Server sends data only for lectures the client is subscribed to.
+
+        Client control messages:
+        - Subscribe to lecture: action=subscribe, lecture_id=<lecture identifier>
+        - Unsubscribe from lecture: action=unsubscribe, lecture_id=<lecture identifier>
+
+        Subscription rules:
+        - One client may subscribe to multiple lectures.
+        - Unsubscribed lectures will no longer send data.
+        - If the client disconnects, all subscriptions are removed automatically.
+
+        Server messages:
+        - Server sends lecture data as JSON messages.
+        - Message payload corresponds to data received from RabbitMQ.
+        - Exact message schema depends on the physical model and may be extended in the future.
+
+        Future extensions:
+        - Additional message types (errors, control events).
+        - Extended payload schemas.
       produces:
       - application/json
       responses:
