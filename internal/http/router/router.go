@@ -25,6 +25,7 @@ func New(h *handlers.Handler, wsHub *ws.Hub, lectureManager *lecture.Manager) *m
 	api := r.PathPrefix("/api").Subrouter()
 
 	api.HandleFunc("/lecture/start", lectureManager.StartLecture).Methods(http.MethodPost)
+	api.HandleFunc("/lecture/stop", lectureManager.StopLecture).Methods(http.MethodPost)
 
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
