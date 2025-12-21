@@ -34,8 +34,8 @@ func (u *userRepository) Create(ctx context.Context, user domain.User) error {
 	}()
 
 	const insertQuery = `
-  INSERT INTO cores.users (isu, first_name, last_name, patronymic) VALUES ($1, $2, $3, $4)
- `
+  		INSERT INTO cores.users (isu, first_name, last_name, patronymic) VALUES ($1, $2, $3, $4)
+ 	`
 
 	_, err = tx.Exec(ctx, insertQuery, user.ISU, user.FirstName, user.LastName, user.Patronymic)
 	if err != nil {
