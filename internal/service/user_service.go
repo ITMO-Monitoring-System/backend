@@ -1,20 +1,36 @@
 package service
 
-import "github.com/jackc/pgx/v5/pgxpool"
+import (
+	"context"
+	"monitoring_backend/internal/domain"
+	"monitoring_backend/internal/repository/postgres"
+)
 import http "monitoring_backend/internal/http/handlers/user"
 
-type UserService struct {
-	db *pgxpool.Pool
+type userService struct {
+	userRepo postgres.UserRepository
 }
 
-func NewUserService(db *pgxpool.Pool) *UserService {
-	return &UserService{db: db}
+func NewUserService(userRepo postgres.UserRepository) *userService {
+	return &userService{userRepo: userRepo}
 }
 
-func (s *UserService) AddUser(request http.AddUserRequest) error {
-	panic("implement me")
+func (s *userService) AddUser(ctx context.Context, request http.AddUserRequest) error {
+	user := domain.User{
+		ISU:        request.ISU,
+		FirstName:  request.Name,
+		LastName:   request.LastName,
+		Patronymic: request.Patronymic,
+	}
+
+	err := s.userRepo.Create(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (s *UserService) AddUserFaces(request http.AddUserFacesRequest) error {
+func (s *userService) AddUserFaces(ctx context.Context, request http.AddUserFacesRequest) error {
 	panic("implement me")
 }

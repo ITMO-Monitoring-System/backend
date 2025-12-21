@@ -38,6 +38,19 @@ info:
   title: Monitoring Backend API
   version: "1.0"
 paths:
+  /api/health:
+    get:
+      description: Проверка доступности сервиса
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Health check
+      tags:
+      - system
   /api/lecture/start:
     post:
       consumes:
@@ -103,20 +116,7 @@ paths:
       summary: Stop lecture processing
       tags:
       - lecture
-  /health:
-    get:
-      description: Проверка доступности сервиса
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-      summary: Health check
-      tags:
-      - system
-  /users:
+  /api/user/create:
     post:
       consumes:
       - application/json
@@ -147,7 +147,7 @@ paths:
       summary: Добавление нового пользователя
       tags:
       - users
-  /ws:
+  /api/ws:
     get:
       description: |-
         Establishes a WebSocket connection for real-time lecture data streaming.

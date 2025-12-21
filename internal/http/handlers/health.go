@@ -8,7 +8,7 @@ import "net/http"
 // @Tags system
 // @Produce json
 // @Success 200 {object} string
-// @Router /health [get]
+// @Router /api/health [get]
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))

@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"monitoring_backend/internal/config"
+	"monitoring_backend/internal/http/handlers/user"
 	"monitoring_backend/internal/lecture"
+	"monitoring_backend/internal/repository/postgres"
+	"monitoring_backend/internal/service"
 	"monitoring_backend/internal/ws"
 	"net/http"
 	"time"
@@ -27,7 +30,16 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	wsHub := ws.NewHub()
 	lectureManager := lecture.NewManager(wsHub, cfg.Rabbit.AMPQURL)
 
-	r := httpRouter.New(h, wsHub, lectureManager)
+	// repositories
+	userRepo := postgres.NewUserRepository(db)
+
+	// services
+	userServ := service.NewUserService(userRepo)
+
+	// handlers
+	userHandler := user.NewUserHandler(userServ)
+
+	r := httpRouter.New(h, wsHub, lectureManager, userHandler)
 
 	return &App{
 		cfg: cfg,

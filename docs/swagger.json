@@ -8,6 +8,26 @@
     },
     "basePath": "/",
     "paths": {
+        "/api/health": {
+            "get": {
+                "description": "Проверка доступности сервиса",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/lecture/start": {
             "post": {
                 "description": "Запускает обработку очереди RabbitMQ для лекции",
@@ -106,27 +126,7 @@
                 }
             }
         },
-        "/health": {
-            "get": {
-                "description": "Проверка доступности сервиса",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "system"
-                ],
-                "summary": "Health check",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/users": {
+        "/api/user/create": {
             "post": {
                 "description": "Создаёт нового пользователя с ISU, именем, фамилией и факультативным отчеством.",
                 "consumes": [
@@ -172,7 +172,7 @@
                 }
             }
         },
-        "/ws": {
+        "/api/ws": {
             "get": {
                 "description": "Establishes a WebSocket connection for real-time lecture data streaming.\n\nConnection flow:\n1. Client opens WebSocket connection to this endpoint.\n2. After connection client sends control messages to manage subscriptions.\n3. Server sends data only for lectures the client is subscribed to.\n\nClient control messages:\n- Subscribe to lecture: action=subscribe, lecture_id=\u003clecture identifier\u003e\n- Unsubscribe from lecture: action=unsubscribe, lecture_id=\u003clecture identifier\u003e\n\nSubscription rules:\n- One client may subscribe to multiple lectures.\n- Unsubscribed lectures will no longer send data.\n- If the client disconnects, all subscriptions are removed automatically.\n\nServer messages:\n- Server sends lecture data as JSON messages.\n- Message payload corresponds to data received from RabbitMQ.\n- Exact message schema depends on the physical model and may be extended in the future.\n\nFuture extensions:\n- Additional message types (errors, control events).\n- Extended payload schemas.",
                 "produces": [

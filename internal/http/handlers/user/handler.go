@@ -1,14 +1,15 @@
 package user
 
 import (
+	"context"
 	"encoding/json"
 	"monitoring_backend/internal/http/response"
 	"net/http"
 )
 
 type UserService interface {
-	AddUser(request AddUserRequest) error
-	AddUserFaces(request AddUserFacesRequest) error
+	AddUser(ctx context.Context, request AddUserRequest) error
+	AddUserFaces(ctx context.Context, request AddUserFacesRequest) error
 }
 
 type UserHandler struct {
@@ -31,7 +32,7 @@ func NewUserHandler(userService UserService) *UserHandler {
 // @Success      201   {string}  string               "ok"
 // @Failure      400   {object}  response.ErrorResponse      "Некорректный JSON или обязательные поля отсутствуют"
 // @Failure      500   {object}  response.ErrorResponse      "Ошибка сервиса при добавлении пользователя"
-// @Router       /users [post]
+// @Router       /api/user/create [post]
 func (h *UserHandler) AddUser(w http.ResponseWriter, r *http.Request) {
 	var request AddUserRequest
 
@@ -39,7 +40,7 @@ func (h *UserHandler) AddUser(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, http.StatusBadRequest, "invalid request body")
 	}
 
-	if err := h.userService.AddUser(request); err != nil {
+	if err := h.userService.AddUser(r.Context(), request); err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
