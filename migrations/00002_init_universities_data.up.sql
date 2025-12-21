@@ -1,7 +1,7 @@
 create schema if not exists "universities_data";
 
 create table if not exists universities_data.departments(
-    id BIGINT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     code VARCHAR(125) NOT NULL UNIQUE,
     name VARCHAR(125) NOT NULL UNIQUE,
     alias VARCHAR(125) UNIQUE
@@ -26,12 +26,12 @@ CREATE INDEX IF NOT EXISTS idx_students_groups_group_code
     ON universities_data.students_groups(group_code);
 
 create table if not exists universities_data.subjects(
-    id bigint primary key,
+    id SERIAL primary key,
     name VARCHAR(125) NOT NULL UNIQUE
 );
 
 create table if not exists universities_data.lectures (
-    id BIGINT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     date timestamptz not null,
     subject_id BIGINT NOT NULL,
     teacher_id TEXT NOT NULL ,
@@ -43,7 +43,7 @@ create index if not exists idx_teacher_lectures
     ON universities_data.lectures(teacher_id);
 
 create table if not exists universities_data.lectures_groups (
-    id BIGINT PRIMARY KEY ,
+    id SERIAL PRIMARY KEY ,
     lecture_id BIGINT NOT NULL,
     group_id VARCHAR(25) NOT NULL,
     foreign key (lecture_id) references universities_data.lectures(id),
@@ -58,7 +58,7 @@ create index if not exists idx_lectures_groups_group_id
     ON universities_data.lectures_groups(group_id);
 
 create table if not exists universities_data.practices (
-    id BIGINT PRIMARY KEY ,
+    id SERIAL PRIMARY KEY ,
     date timestamptz NOT NULL ,
     subject_id BIGINT NOT NULL ,
     teacher_id TEXT NOT NULL ,
@@ -70,7 +70,7 @@ create index if not exists idx_practices_teacher
     ON universities_data.practices(teacher_id);
 
 create table if not exists universities_data.practices_groups (
-    id BIGINT primary key ,
+    id SERIAL primary key ,
     practice_id BIGINT NOT NULL ,
     group_id VARCHAR(25) NOT NULL ,
     foreign key (practice_id) references universities_data.practices(id),

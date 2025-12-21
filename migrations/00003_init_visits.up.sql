@@ -1,7 +1,7 @@
 create schema if not exists "visits";
 
 create table if not exists visits.lectures_visiting (
-    id BIGINT PRIMARY KEY ,
+    id SERIAL PRIMARY KEY ,
     lecture_id BIGINT NOT NULL,
     user_id TEXT NOT NULL,
     date timestamptz not null,
@@ -26,7 +26,7 @@ create index if not exists idx_lecture_visiting_lecture_id_date
 
 
 create table if not exists visits.practices_visiting (
-    id BIGINT PRIMARY KEY ,
+    id SERIAL PRIMARY KEY ,
     practice_id BIGINT not null ,
     user_id TEXT NOT NULL ,
     date timestamptz not null,
