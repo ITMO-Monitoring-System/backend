@@ -21,6 +21,17 @@ func NewUserHandler(userService UserService) *UserHandler {
 	}
 }
 
+// AddUser godoc
+// @Summary      Добавление нового пользователя
+// @Description  Создаёт нового пользователя с ISU, именем, фамилией и факультативным отчеством.
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        user  body      AddUserRequest  true  "Пользователь для добавления"
+// @Success      201   {string}  string               "ok"
+// @Failure      400   {object}  response.ErrorResponse      "Некорректный JSON или обязательные поля отсутствуют"
+// @Failure      500   {object}  response.ErrorResponse      "Ошибка сервиса при добавлении пользователя"
+// @Router       /users [post]
 func (h *UserHandler) AddUser(w http.ResponseWriter, r *http.Request) {
 	var request AddUserRequest
 

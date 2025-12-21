@@ -12,6 +12,26 @@ definitions:
       lecture_id:
         type: integer
     type: object
+  response.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  user.AddUserRequest:
+    properties:
+      isu:
+        type: string
+      last_name:
+        type: string
+      name:
+        type: string
+      patronymic:
+        type: string
+    required:
+    - isu
+    - last_name
+    - name
+    type: object
 info:
   contact: {}
   description: Backend for lecture monitoring via RabbitMQ and WebSocket
@@ -96,6 +116,37 @@ paths:
       summary: Health check
       tags:
       - system
+  /users:
+    post:
+      consumes:
+      - application/json
+      description: Создаёт нового пользователя с ISU, именем, фамилией и факультативным
+        отчеством.
+      parameters:
+      - description: Пользователь для добавления
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/user.AddUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: ok
+          schema:
+            type: string
+        "400":
+          description: Некорректный JSON или обязательные поля отсутствуют
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Ошибка сервиса при добавлении пользователя
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Добавление нового пользователя
+      tags:
+      - users
   /ws:
     get:
       description: |-
