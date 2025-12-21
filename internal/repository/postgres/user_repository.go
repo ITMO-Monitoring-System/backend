@@ -18,8 +18,31 @@ func NewUserRepository(db *pgxpool.Pool) *userRepository {
 }
 
 func (u *userRepository) Create(ctx context.Context, user domain.User) error {
-	//TODO implement me
-	panic("implement me")
+	tx, err := u.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback(ctx)
+		} else if err != nil {
+			_ = tx.Rollback(ctx)
+		} else {
+			err = tx.Commit(ctx)
+		}
+	}()
+
+	const insertQuery = `
+  INSERT INTO cores.users (isu, first_name, last_name, patronymic) VALUES ($1, $2, $3, $4)
+ `
+
+	_, err = tx.Exec(ctx, insertQuery, user.ISU, user.FirstName, user.LastName, user.Patronymic)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (u *userRepository) GetByISU(ctx context.Context, isu string) (domain.User, error) {
