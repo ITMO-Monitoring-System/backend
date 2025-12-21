@@ -2,6 +2,7 @@ package ws
 
 import (
 	"encoding/json"
+	"log"
 
 	"github.com/gorilla/websocket"
 )
@@ -43,10 +44,12 @@ func (c *Client) Read() {
 
 		if cmd.Action == "subscribe" {
 			c.hub.Subscribe(c, cmd.LectureID)
+			log.Println("INFO: subscribed", cmd.LectureID)
 		}
 
 		if cmd.Action == "unsubscribe" {
 			c.hub.Unsubscribe(c, cmd.LectureID)
+			log.Println("INFO: unsubscribed", cmd.LectureID)
 		}
 	}
 }
@@ -60,5 +63,6 @@ func (c *Client) Write() {
 		if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 			return
 		}
+		log.Println("INFO: sent", string(msg))
 	}
 }
