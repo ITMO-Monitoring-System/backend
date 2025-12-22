@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -37,6 +38,7 @@ func (f *UserFaces) GenerateEmbeddings() error {
 		defer wg.Done()
 		embedding, err := f.requestEmbedding(photo)
 		if err != nil {
+			log.Printf("ERROR: %v", err)
 			errChan <- err
 			return
 		}
