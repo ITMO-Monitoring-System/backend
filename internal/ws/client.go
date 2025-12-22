@@ -32,6 +32,7 @@ func (c *Client) Read() {
 		if err != nil {
 			return
 		}
+		log.Printf("INFO: recv from conn: %s", msg)
 
 		var cmd struct {
 			Action    string `json:"action"`
