@@ -1072,7 +1072,38 @@ paths:
       summary: List practices by teacher
       tags:
       - practices
-  /api/upload/faces/{isu}:
+  /api/user/create:
+    post:
+      consumes:
+      - application/json
+      description: Создаёт нового пользователя с ISU, именем, фамилией и факультативным
+        отчеством.
+      parameters:
+      - description: Пользователь для добавления
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/user.AddUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: ok
+          schema:
+            type: string
+        "400":
+          description: Некорректный JSON или обязательные поля отсутствуют
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Ошибка сервиса при добавлении пользователя
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Добавление нового пользователя
+      tags:
+      - users
+  /api/user/upload/faces/{isu}:
     post:
       consumes:
       - multipart/form-data
@@ -1115,37 +1146,6 @@ paths:
           schema:
             $ref: '#/definitions/response.ErrorResponse'
       summary: Загрузка фотографий лица студента
-      tags:
-      - users
-  /api/user/create:
-    post:
-      consumes:
-      - application/json
-      description: Создаёт нового пользователя с ISU, именем, фамилией и факультативным
-        отчеством.
-      parameters:
-      - description: Пользователь для добавления
-        in: body
-        name: user
-        required: true
-        schema:
-          $ref: '#/definitions/user.AddUserRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: ok
-          schema:
-            type: string
-        "400":
-          description: Некорректный JSON или обязательные поля отсутствуют
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "500":
-          description: Ошибка сервиса при добавлении пользователя
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      summary: Добавление нового пользователя
       tags:
       - users
   /api/ws:

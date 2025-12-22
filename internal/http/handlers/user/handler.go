@@ -66,7 +66,7 @@ func (h *UserHandler) AddUser(w http.ResponseWriter, r *http.Request) {
 // @Success      200          {string}  string                 "ok"
 // @Failure      400          {object}  response.ErrorResponse        "Некорректный ISU или отсутствуют файлы"
 // @Failure      500          {object}  response.ErrorResponse        "Ошибка сервиса при добавлении фотографий"
-// @Router       /api/upload/faces/{isu} [post]
+// @Router       /api/user/upload/faces/{isu} [post]
 func (h *UserHandler) UploadFaces(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	isu := vars["isu"]

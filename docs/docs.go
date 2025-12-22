@@ -1304,7 +1304,53 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/upload/faces/{isu}": {
+        "/api/user/create": {
+            "post": {
+                "description": "Создаёт нового пользователя с ISU, именем, фамилией и факультативным отчеством.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Добавление нового пользователя",
+                "parameters": [
+                    {
+                        "description": "Пользователь для добавления",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.AddUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный JSON или обязательные поля отсутствуют",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервиса при добавлении пользователя",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/user/upload/faces/{isu}": {
             "post": {
                 "description": "Загружает три фотографии (левая, правая, фронтальная) студента и сохраняет их в сервисе.",
                 "consumes": [
@@ -1362,52 +1408,6 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Ошибка сервиса при добавлении фотографий",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/user/create": {
-            "post": {
-                "description": "Создаёт нового пользователя с ISU, именем, фамилией и факультативным отчеством.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Добавление нового пользователя",
-                "parameters": [
-                    {
-                        "description": "Пользователь для добавления",
-                        "name": "user",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/user.AddUserRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "ok",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "Некорректный JSON или обязательные поля отсутствуют",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Ошибка сервиса при добавлении пользователя",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
