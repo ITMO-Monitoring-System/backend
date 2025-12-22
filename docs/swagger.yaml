@@ -1,5 +1,29 @@
 basePath: /
 definitions:
+  dataset.DatasetResponse:
+    properties:
+      users_data:
+        items:
+          $ref: '#/definitions/dataset.StudentResponse'
+        type: array
+    type: object
+  dataset.StudentResponse:
+    properties:
+      center_face_embedding:
+        items:
+          type: number
+        type: array
+      left_face_embedding:
+        items:
+          type: number
+        type: array
+      right_face_embedding:
+        items:
+          type: number
+        type: array
+      user_id:
+        type: string
+    type: object
   department.DepartmentResponse:
     properties:
       alias:
@@ -199,6 +223,24 @@ info:
   title: Monitoring Backend API
   version: "1.0"
 paths:
+  /api/dataset:
+    get:
+      description: Возвращает список пользователей с эмбеддингами лиц (левый, правый
+        и центральный ракурс).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Датасет успешно получен
+          schema:
+            $ref: '#/definitions/dataset.DatasetResponse'
+        "500":
+          description: Ошибка при получении датасета
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Получить датасет эмбеддингов лиц
+      tags:
+      - dataset
   /api/departments:
     get:
       description: Возвращает список департаментов с пагинацией.

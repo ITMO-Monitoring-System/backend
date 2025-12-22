@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"monitoring_backend/internal/config"
+	"monitoring_backend/internal/http/middleware"
 
 	"monitoring_backend/internal/http/handlers/department"
 	"monitoring_backend/internal/http/handlers/group"
@@ -80,12 +81,21 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 		LectureManager: lectureManager,
 	})
 
+	// создаём конфиг CORS
+	corsMiddleware := middleware.NewCORS(middleware.CORSConfig{
+		AllowedOrigins: []string{"*"}, // в продакшене укажи домены
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Authorization"},
+	})
+
+	handler := corsMiddleware(r)
+
 	return &App{
 		cfg: cfg,
 		db:  db,
 		server: &http.Server{
 			Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port),
-			Handler:      r,
+			Handler:      handler,
 			ReadTimeout:  10 * time.Second,
 			WriteTimeout: 10 * time.Second,
 			IdleTimeout:  10 * time.Second,

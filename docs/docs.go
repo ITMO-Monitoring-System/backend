@@ -15,6 +15,32 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/dataset": {
+            "get": {
+                "description": "Возвращает список пользователей с эмбеддингами лиц (левый, правый и центральный ракурс).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dataset"
+                ],
+                "summary": "Получить датасет эмбеддингов лиц",
+                "responses": {
+                    "200": {
+                        "description": "Датасет успешно получен",
+                        "schema": {
+                            "$ref": "#/definitions/dataset.DatasetResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка при получении датасета",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/departments": {
             "get": {
                 "description": "Возвращает список департаментов с пагинацией.",
@@ -1411,6 +1437,43 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dataset.DatasetResponse": {
+            "type": "object",
+            "properties": {
+                "users_data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dataset.StudentResponse"
+                    }
+                }
+            }
+        },
+        "dataset.StudentResponse": {
+            "type": "object",
+            "properties": {
+                "center_face_embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "left_face_embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "right_face_embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "department.DepartmentResponse": {
             "type": "object",
             "properties": {
