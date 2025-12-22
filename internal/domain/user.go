@@ -102,7 +102,7 @@ func (f *UserFaces) requestEmbedding(photo []byte) ([]float32, error) {
 	result := struct {
 		Ok        bool      `json:"ok"`
 		Embedding []float32 `json:"embedding"`
-		BBox      []int     `json:"bbox"`
+		BBox      []float64     `json:"bbox"`
 	}{}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
