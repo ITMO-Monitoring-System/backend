@@ -78,6 +78,7 @@ func consumeOnce(ctx context.Context, amqpURL string, queue string, lectureID in
 			if !ok {
 				return amqp.ErrClosed
 			}
+			log.Printf("INFO - Received message: %s from: %s", msg.MessageId, queue)
 
 			if isLectureEnd(msg.Body) {
 				_ = msg.Ack(false)
