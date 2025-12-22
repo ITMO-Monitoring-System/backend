@@ -8,7 +8,7 @@ import (
 )
 
 type LectureVisitRepository interface {
-	Add(ctx context.Context, v domain.LectureVisit) error
+	Add(ctx context.Context, v domain.LectureVisit) (*domain.User, error)
 	Exists(ctx context.Context, lectureID int64, userID string) (bool, error)
 	ListByLecture(ctx context.Context, lectureID int64) ([]domain.LectureVisit, error)
 	ListByUser(ctx context.Context, userID string, from, to time.Time) ([]domain.LectureVisit, error)

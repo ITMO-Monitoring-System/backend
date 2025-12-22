@@ -38,8 +38,6 @@ type App struct {
 
 func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	health := httpHandler.New(db)
-	wsHub := ws.NewHub()
-	lectureManager := lecture.NewManager(wsHub, cfg.Rabbit.AMPQURL)
 
 	// repositories
 	userRepo := postgres.NewUserRepository(db)
@@ -52,8 +50,10 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	pracRepo := postgres.NewPracticeRepository(db)
 	pracGroupRepo := postgres.NewPracticeGroupRepository(db)
 	datasetRepo := postgres.NewDatasetRepository(db)
+	lectureVisitsRepo := postgres.NewLectureVisitsRepository(db)
 
 	// services
+	visitsServ := service.NewVisitService(lectureVisitsRepo)
 	userServ := service.NewUserService(userRepo)
 	deptServ := service.NewDepartmentService(deptRepo)
 	groupServ := service.NewGroupService(groupRepo)
@@ -72,6 +72,9 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	lecHandler := lecture2.NewLectureHandler(lecServ)
 	pracHandler := practice.NewPracticeHandler(pracServ)
 	datasetHandler := dataset.NewDatasetHandler(datasetServ)
+
+	wsHub := ws.NewHub(visitsServ)
+	lectureManager := lecture.NewManager(wsHub, cfg.Rabbit.AMPQURL)
 
 	r := httpRouter.New(httpRouter.Dependencies{
 		Health:         health,
