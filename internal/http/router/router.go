@@ -18,7 +18,6 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-
 type Dependencies struct {
 	Health *handlers.Handler
 
@@ -43,13 +42,13 @@ func New(d Dependencies) *mux.Router {
 
 	api := r.PathPrefix("/api").Subrouter()
 
-	api.HandleFunc("/health", h.Health).Methods(http.MethodGet)
-	api.HandleFunc("/ws", ws.Handler(wsHub))
+	api.HandleFunc("/health", d.Health.Health).Methods(http.MethodGet)
+	api.HandleFunc("/ws", ws.Handler(d.WsHub))
 
 	// lectures
 	lectureGroup := api.PathPrefix("/lecture").Subrouter()
-	lectureGroup.HandleFunc("/start", lectureManager.StartLecture).Methods(http.MethodPost)
-	lectureGroup.HandleFunc("/stop", lectureManager.StopLecture).Methods(http.MethodPost)
+	lectureGroup.HandleFunc("/start", d.LectureManager.StartLecture).Methods(http.MethodPost)
+	lectureGroup.HandleFunc("/stop", d.LectureManager.StopLecture).Methods(http.MethodPost)
 
 	api.HandleFunc("/departments", d.Department.List).Methods("GET")
 	api.HandleFunc("/departments/{id:[0-9]+}", d.Department.GetByID).Methods("GET")
@@ -82,11 +81,11 @@ func New(d Dependencies) *mux.Router {
 
 	api.HandleFunc("/lecture/start", d.LectureManager.StartLecture).Methods(http.MethodPost)
 	api.HandleFunc("/lecture/stop", d.LectureManager.StopLecture).Methods(http.MethodPost)
-  
+
 	// cores
 	userGroup := api.PathPrefix("/user").Subrouter()
-	userGroup.HandleFunc("/create", userHandler.AddUser).Methods(http.MethodPost)
-	userGroup.HandleFunc("/upload/faces/{isu}", userHandler.UploadFaces)
+	userGroup.HandleFunc("/create", d.User.AddUser).Methods(http.MethodPost)
+	userGroup.HandleFunc("/upload/faces/{isu}", d.User.UploadFaces)
 
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 

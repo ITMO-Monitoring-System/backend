@@ -16,10 +16,10 @@ type SubjectService struct {
 	repo postgres.SubjectRepository
 }
 
-func NewSubjectService(db *pgxpool.Pool) *SubjectService {
+func NewSubjectService(db *pgxpool.Pool, repo postgres.SubjectRepository) *SubjectService {
 	return &SubjectService{
 		db:   db,
-		repo: postgres.NewSubjectRepository(db),
+		repo: repo,
 	}
 }
 

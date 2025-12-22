@@ -3,8 +3,6 @@ package service
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"monitoring_backend/internal/domain"
 	deptdto "monitoring_backend/internal/http/handlers/department"
 	postgres "monitoring_backend/internal/repository/postgres"
@@ -14,8 +12,8 @@ type DepartmentService struct {
 	repo postgres.DepartmentRepository
 }
 
-func NewDepartmentService(db *pgxpool.Pool) *DepartmentService {
-	return &DepartmentService{repo: postgres.NewDepartmentRepository(db)}
+func NewDepartmentService(repo postgres.DepartmentRepository) *DepartmentService {
+	return &DepartmentService{repo: repo}
 }
 
 func (s *DepartmentService) GetByID(ctx context.Context, req deptdto.GetDepartmentByIDRequest) (deptdto.DepartmentResponse, error) {

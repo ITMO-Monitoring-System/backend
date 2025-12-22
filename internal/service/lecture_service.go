@@ -16,11 +16,11 @@ type LectureService struct {
 	lecGroups postgres.LectureGroupRepository
 }
 
-func NewLectureService(db *pgxpool.Pool) *LectureService {
+func NewLectureService(db *pgxpool.Pool, lectures postgres.LectureRepository, lecGroups postgres.LectureGroupRepository) *LectureService {
 	return &LectureService{
 		db:        db,
-		lectures:  postgres.NewLectureRepository(db),
-		lecGroups: postgres.NewLectureGroupRepository(db),
+		lectures:  lectures,
+		lecGroups: lecGroups,
 	}
 }
 

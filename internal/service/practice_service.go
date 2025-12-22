@@ -16,11 +16,11 @@ type PracticeService struct {
 	pracGroups postgres.PracticeGroupRepository
 }
 
-func NewPracticeService(db *pgxpool.Pool) *PracticeService {
+func NewPracticeService(db *pgxpool.Pool, practices postgres.PracticeRepository, pracGroups postgres.PracticeGroupRepository) *PracticeService {
 	return &PracticeService{
 		db:         db,
-		practices:  postgres.NewPracticeRepository(db),
-		pracGroups: postgres.NewPracticeGroupRepository(db),
+		practices:  practices,
+		pracGroups: pracGroups,
 	}
 }
 

@@ -38,38 +38,44 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	wsHub := ws.NewHub()
 	lectureManager := lecture.NewManager(wsHub, cfg.Rabbit.AMPQURL)
 
-	
-  
 	// repositories
 	userRepo := postgres.NewUserRepository(db)
+	deptRepo := postgres.NewDepartmentRepository(db)
+	groupRepo := postgres.NewGroupRepository(db)
+	sgRepo := postgres.NewStudentGroupRepository(db)
+	subjRepo := postgres.NewSubjectRepository(db)
+	lecRepo := postgres.NewLectureRepository(db)
+	lecGroupRepo := postgres.NewLectureGroupRepository(db)
+	pracRepo := postgres.NewPracticeRepository(db)
+	pracGroupRepo := postgres.NewPracticeGroupRepository(db)
 
 	// services
 	userServ := service.NewUserService(userRepo)
-  deptSvc := service.NewDepartmentService(db)
-	groupSvc := service.NewGroupService(db)
-	sgSvc := service.NewStudentGroupService(db)
-	subjSvc := service.NewSubjectService(db)
-	lecSvc := service.NewLectureService(db)
-	pracSvc := service.NewPracticeService(db)
+	deptServ := service.NewDepartmentService(deptRepo)
+	groupServ := service.NewGroupService(groupRepo)
+	sgServ := service.NewStudentGroupService(sgRepo)
+	subjServ := service.NewSubjectService(db, subjRepo)
+	lecServ := service.NewLectureService(db, lecRepo, lecGroupRepo)
+	pracServ := service.NewPracticeService(db, pracRepo, pracGroupRepo)
 
 	// handlers
 	userHandler := user.NewUserHandler(userServ)
-  deptH := department.NewDepartmentHandler(deptSvc)
-	groupH := group.NewGroupHandler(groupSvc)
-	sgH := student_group.NewStudentGroupHandler(sgSvc)
-	subjH := subject.NewSubjectHandler(subjSvc)
-	lecH := lecture2.NewLectureHandler(lecSvc)
-	pracH := practice.NewPracticeHandler(pracSvc)
+	deptHandler := department.NewDepartmentHandler(deptServ)
+	groupHandler := group.NewGroupHandler(groupServ)
+	sgHandler := student_group.NewStudentGroupHandler(sgServ)
+	subjHandler := subject.NewSubjectHandler(subjServ)
+	lecHandler := lecture2.NewLectureHandler(lecServ)
+	pracHandler := practice.NewPracticeHandler(pracServ)
 
 	r := httpRouter.New(httpRouter.Dependencies{
 		Health:         health,
-		Department:     deptH,
-		Group:          groupH,
-		StudentGroup:   sgH,
-		Subject:        subjH,
-		Lecture:        lecH,
-		Practice:       pracH,
-		User:           userH,
+		Department:     deptHandler,
+		Group:          groupHandler,
+		StudentGroup:   sgHandler,
+		Subject:        subjHandler,
+		Lecture:        lecHandler,
+		Practice:       pracHandler,
+		User:           userHandler,
 		WsHub:          wsHub,
 		LectureManager: lectureManager,
 	})

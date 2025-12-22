@@ -3,8 +3,6 @@ package service
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"monitoring_backend/internal/domain"
 	sgdto "monitoring_backend/internal/http/handlers/student_group"
 	postgres "monitoring_backend/internal/repository/postgres"
@@ -14,8 +12,8 @@ type StudentGroupService struct {
 	repo postgres.StudentGroupRepository
 }
 
-func NewStudentGroupService(db *pgxpool.Pool) *StudentGroupService {
-	return &StudentGroupService{repo: postgres.NewStudentGroupRepository(db)}
+func NewStudentGroupService(repo postgres.StudentGroupRepository) *StudentGroupService {
+	return &StudentGroupService{repo: repo}
 }
 
 func (s *StudentGroupService) SetUserGroup(ctx context.Context, req sgdto.SetUserGroupRequest) error {
