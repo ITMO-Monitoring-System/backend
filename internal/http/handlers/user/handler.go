@@ -90,9 +90,9 @@ func (h *UserHandler) UploadFaces(w http.ResponseWriter, r *http.Request) {
 			response.WriteError(w, http.StatusBadRequest, fmt.Sprintf("missing file: %s", key))
 			return
 		}
-		defer file.Close()
 
 		data, err := io.ReadAll(file)
+		_ = file.Close()
 		if err != nil {
 			response.WriteError(w, http.StatusBadRequest, fmt.Sprintf("cannot read file: %s", key))
 			return

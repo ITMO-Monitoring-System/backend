@@ -90,6 +90,8 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 		DataSet:        datasetHandler,
 	})
 
+	handler := middleware.NewLoggingMiddleware(r)
+
 	// создаём конфиг CORS
 	corsMiddleware := middleware.NewCORS(middleware.CORSConfig{
 		AllowedOrigins: []string{"*"}, // в продакшене укажи домены
@@ -97,7 +99,7 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 		AllowedHeaders: []string{"Content-Type", "Authorization"},
 	})
 
-	handler := corsMiddleware(r)
+	handler = corsMiddleware(handler)
 
 	return &App{
 		cfg: cfg,
