@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 
@@ -103,21 +104,11 @@ func (h *LectureHandler) ListByTeacher(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	from, err := httputil.QueryTimeRFC3339(r, "from")
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	to, err := httputil.QueryTimeRFC3339(r, "to")
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
 
 	resp, err := h.service.ListByTeacher(r.Context(), ListLecturesByTeacherRequest{
 		TeacherID: teacherID,
-		From:      from,
-		To:        to,
+		From:      time.Time{},
+		To:        time.Time{},
 	})
 	if err != nil {
 		httputil.WriteServiceError(w, err)
