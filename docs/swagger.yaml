@@ -223,24 +223,6 @@ info:
   title: Monitoring Backend API
   version: "1.0"
 paths:
-  /api/dataset:
-    get:
-      description: Возвращает список пользователей с эмбеддингами лиц (левый, правый
-        и центральный ракурс).
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Датасет успешно получен
-          schema:
-            $ref: '#/definitions/dataset.DatasetResponse'
-        "500":
-          description: Ошибка при получении датасета
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      summary: Получить датасет эмбеддингов лиц
-      tags:
-      - dataset
   /api/departments:
     get:
       description: Возвращает список департаментов с пагинацией.
@@ -699,6 +681,24 @@ paths:
       summary: Get practice by ID
       tags:
       - practices
+  /api/service/dataset:
+    get:
+      description: Возвращает список пользователей с эмбеддингами лиц (левый, правый
+        и центральный ракурс).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Датасет успешно получен
+          schema:
+            $ref: '#/definitions/dataset.DatasetResponse'
+        "500":
+          description: Ошибка при получении датасета
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Получить датасет эмбеддингов лиц
+      tags:
+      - dataset
   /api/students/{isu}/group:
     delete:
       parameters:

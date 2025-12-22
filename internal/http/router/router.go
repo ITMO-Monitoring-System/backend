@@ -6,6 +6,7 @@ import (
 	"monitoring_backend/internal/http/handlers/group"
 	lecture2 "monitoring_backend/internal/http/handlers/lecture"
 	"monitoring_backend/internal/http/handlers/practice"
+	"monitoring_backend/internal/http/handlers/service/dataset"
 	"monitoring_backend/internal/http/handlers/student_group"
 	"monitoring_backend/internal/http/handlers/subject"
 	"monitoring_backend/internal/http/handlers/user"
@@ -28,6 +29,8 @@ type Dependencies struct {
 	Lecture      *lecture2.LectureHandler
 	Practice     *practice.PracticeHandler
 	User         *user.UserHandler
+
+	DataSet *dataset.DatasetHandler
 
 	WsHub          *ws.Hub
 	LectureManager *lecture.Manager
@@ -86,6 +89,10 @@ func New(d Dependencies) *mux.Router {
 	userGroup := api.PathPrefix("/user").Subrouter()
 	userGroup.HandleFunc("/create", d.User.AddUser).Methods(http.MethodPost)
 	userGroup.HandleFunc("/upload/faces/{isu}", d.User.UploadFaces)
+
+	// services
+	serviceGroup := api.PathPrefix("/service").Subrouter()
+	serviceGroup.HandleFunc("/dataset", d.DataSet.Get).Methods(http.MethodGet)
 
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 

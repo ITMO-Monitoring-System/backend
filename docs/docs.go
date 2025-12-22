@@ -15,32 +15,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/dataset": {
-            "get": {
-                "description": "Возвращает список пользователей с эмбеддингами лиц (левый, правый и центральный ракурс).",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "dataset"
-                ],
-                "summary": "Получить датасет эмбеддингов лиц",
-                "responses": {
-                    "200": {
-                        "description": "Датасет успешно получен",
-                        "schema": {
-                            "$ref": "#/definitions/dataset.DatasetResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Ошибка при получении датасета",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/api/departments": {
             "get": {
                 "description": "Возвращает список департаментов с пагинацией.",
@@ -733,6 +707,32 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/service/dataset": {
+            "get": {
+                "description": "Возвращает список пользователей с эмбеддингами лиц (левый, правый и центральный ракурс).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dataset"
+                ],
+                "summary": "Получить датасет эмбеддингов лиц",
+                "responses": {
+                    "200": {
+                        "description": "Датасет успешно получен",
+                        "schema": {
+                            "$ref": "#/definitions/dataset.DatasetResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка при получении датасета",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }

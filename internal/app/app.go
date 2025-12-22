@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"monitoring_backend/internal/config"
+	"monitoring_backend/internal/http/handlers/service/dataset"
 	"monitoring_backend/internal/http/middleware"
+	"monitoring_backend/internal/service/services"
 
 	"monitoring_backend/internal/http/handlers/department"
 	"monitoring_backend/internal/http/handlers/group"
@@ -49,6 +51,7 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	lecGroupRepo := postgres.NewLectureGroupRepository(db)
 	pracRepo := postgres.NewPracticeRepository(db)
 	pracGroupRepo := postgres.NewPracticeGroupRepository(db)
+	datasetRepo := postgres.NewDatasetRepository(db)
 
 	// services
 	userServ := service.NewUserService(userRepo)
@@ -58,6 +61,7 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	subjServ := service.NewSubjectService(db, subjRepo)
 	lecServ := service.NewLectureService(db, lecRepo, lecGroupRepo)
 	pracServ := service.NewPracticeService(db, pracRepo, pracGroupRepo)
+	datasetServ := services.NewDatasetService(datasetRepo)
 
 	// handlers
 	userHandler := user.NewUserHandler(userServ)
@@ -67,6 +71,7 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	subjHandler := subject.NewSubjectHandler(subjServ)
 	lecHandler := lecture2.NewLectureHandler(lecServ)
 	pracHandler := practice.NewPracticeHandler(pracServ)
+	datasetHandler := dataset.NewDatasetHandler(datasetServ)
 
 	r := httpRouter.New(httpRouter.Dependencies{
 		Health:         health,
@@ -79,6 +84,7 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 		User:           userHandler,
 		WsHub:          wsHub,
 		LectureManager: lectureManager,
+		DataSet:        datasetHandler,
 	})
 
 	// создаём конфиг CORS

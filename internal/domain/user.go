@@ -1,7 +1,13 @@
 package domain
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
 	"sync"
+	"time"
 )
 
 type User struct {
@@ -28,11 +34,14 @@ func (f *UserFaces) GenerateEmbeddings() error {
 
 	generate := func(vector *[]float32, photo []byte) {
 		defer wg.Done()
-		// запрос на пайтон сервис за ембеддингом
+		embedding, err := f.requestEmbedding(photo)
+		if err != nil {
+			errChan <- err
+			return
+		}
 		f.mu.Lock()
-		defer f.mu.Unlock()
-
-		*vector = []float32{1} // затычка
+		*vector = embedding
+		f.mu.Unlock()
 	}
 
 	if f.LeftFace != nil {
@@ -58,4 +67,48 @@ func (f *UserFaces) GenerateEmbeddings() error {
 		}
 	}
 	return nil
+}
+
+func (f *UserFaces) requestEmbedding(photo []byte) ([]float32, error) {
+	req, err := http.NewRequest(
+		http.MethodPost,
+		"http://89.111.170.130:8180/api/embedding",
+		bytes.NewReader(photo),
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+
+	client := &http.Client{
+		Timeout: time.Second * 30,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("embedding service returned %d", resp.StatusCode)
+	}
+
+	result := struct {
+		Ok        bool      `json:"ok"`
+		Embedding []float32 `json:"embedding"`
+		BBox      []int     `json:"bbox"`
+	}{}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	if !result.Ok {
+		return nil, errors.New("embedding service returned ok=false")
+	}
+
+	return result.Embedding, nil
 }
