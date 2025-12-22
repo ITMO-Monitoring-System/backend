@@ -39,7 +39,7 @@ var upgrader = websocket.Upgrader{
 // @Tags websocket
 // @Produce application/json
 // @Success 101 {string} string "Switching Protocols"
-// @Router /ws [get]
+// @Router /api/ws [get]
 func Handler(hub *Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)

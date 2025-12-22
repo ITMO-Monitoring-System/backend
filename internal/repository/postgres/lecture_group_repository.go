@@ -29,8 +29,9 @@ func (r *lectureGroupRepository) AddGroup(ctx context.Context, lectureID int64, 
 			_ = tx.Rollback(ctx)
 		} else if err != nil {
 			_ = tx.Rollback(ctx)
+		} else {
+			err = tx.Commit(ctx)
 		}
-		err = tx.Commit(ctx)
 	}()
 
 	query := `
@@ -54,8 +55,9 @@ func (r *lectureGroupRepository) RemoveGroup(ctx context.Context, lectureID int6
 			_ = tx.Rollback(ctx)
 		} else if err != nil {
 			_ = tx.Rollback(ctx)
+		} else {
+			err = tx.Commit(ctx)
 		}
-		err = tx.Commit(ctx)
 	}()
 
 	query := `

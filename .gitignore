@@ -29,5 +29,5 @@ go.work.sum
 config.toml
 
 # Editor/IDE
- .idea/
- .vscode/
+.idea/
+.vscode/

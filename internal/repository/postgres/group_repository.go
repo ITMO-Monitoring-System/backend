@@ -68,9 +68,5 @@ func (r *groupRepository) ListByDepartment(ctx context.Context, departmentID int
 		return nil, domain.ErrGroupsNotFound
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
 	return groups, nil
 }
