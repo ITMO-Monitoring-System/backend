@@ -62,11 +62,11 @@ func (u *userRepository) AddFaceEmbeddings(ctx context.Context, user *domain.Use
 	}()
 
 	const insertQuery = `
-  INSERT INTO cores.face_images (student_id, 
-   left_face, left_face_embedding,
-   right_face, right_face_embedding,
-   full_face, full_face_embedding)
-  VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO cores.face_images (student_id, 
+			left_face, left_face_embedding,
+			right_face, right_face_embedding,
+			full_face, full_face_embedding)
+		VALUES ($1, $2, $3, $4, $5, $6, $7);
  `
 
 	_, err = tx.Exec(ctx, insertQuery,
