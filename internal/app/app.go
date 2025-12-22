@@ -5,7 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"monitoring_backend/internal/config"
+	"monitoring_backend/internal/http/handlers/department"
+	"monitoring_backend/internal/http/handlers/group"
+	lecture2 "monitoring_backend/internal/http/handlers/lecture"
+	"monitoring_backend/internal/http/handlers/practice"
+	"monitoring_backend/internal/http/handlers/student_group"
+	"monitoring_backend/internal/http/handlers/subject"
+	"monitoring_backend/internal/http/handlers/user"
 	"monitoring_backend/internal/lecture"
+	"monitoring_backend/internal/service"
 	"monitoring_backend/internal/ws"
 	"net/http"
 	"time"
@@ -23,11 +31,40 @@ type App struct {
 }
 
 func New(cfg *config.Config, db *pgxpool.Pool) *App {
-	h := httpHandler.New(db)
+	health := httpHandler.New(db)
 	wsHub := ws.NewHub()
 	lectureManager := lecture.NewManager(wsHub, cfg.Rabbit.AMPQURL)
 
-	r := httpRouter.New(h, wsHub, lectureManager)
+	// сервисы
+	deptSvc := service.NewDepartmentService(db)
+	groupSvc := service.NewGroupService(db)
+	sgSvc := service.NewStudentGroupService(db)
+	subjSvc := service.NewSubjectService(db)
+	lecSvc := service.NewLectureService(db)
+	pracSvc := service.NewPracticeService(db)
+	userSvc := service.NewUserService(db)
+
+	// хендлеры
+	deptH := department.NewDepartmentHandler(deptSvc)
+	groupH := group.NewGroupHandler(groupSvc)
+	sgH := student_group.NewStudentGroupHandler(sgSvc)
+	subjH := subject.NewSubjectHandler(subjSvc)
+	lecH := lecture2.NewLectureHandler(lecSvc)
+	pracH := practice.NewPracticeHandler(pracSvc)
+	userH := user.NewUserHandler(userSvc)
+
+	r := httpRouter.New(httpRouter.Dependencies{
+		Health:         health,
+		Department:     deptH,
+		Group:          groupH,
+		StudentGroup:   sgH,
+		Subject:        subjH,
+		Lecture:        lecH,
+		Practice:       pracH,
+		User:           userH,
+		WsHub:          wsHub,
+		LectureManager: lectureManager,
+	})
 
 	return &App{
 		cfg: cfg,
