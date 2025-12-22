@@ -184,4 +184,49 @@ paths:
       summary: WebSocket connection for lecture streaming
       tags:
       - websocket
+  /upload/faces/{isu}:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Загружает три фотографии (левая, правая, фронтальная) студента
+        и сохраняет их в сервисе.
+      parameters:
+      - description: ISU студента
+        in: path
+        name: isu
+        required: true
+        type: string
+      - description: Фотография левой стороны лица
+        in: formData
+        name: left_face
+        required: true
+        type: file
+      - description: Фотография правой стороны лица
+        in: formData
+        name: right_face
+        required: true
+        type: file
+      - description: Фотография фронтальной стороны лица
+        in: formData
+        name: center_face
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+        "400":
+          description: Некорректный ISU или отсутствуют файлы
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Ошибка сервиса при добавлении фотографий
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Загрузка фотографий лица студента
+      tags:
+      - users
 swagger: "2.0"
