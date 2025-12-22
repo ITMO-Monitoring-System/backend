@@ -10,4 +10,5 @@ type UserResponse struct {
 type UserVisitsLectureResponse struct {
 	User      UserResponse `json:"user"`
 	LectureID int64        `json:"lecture_id"`
+	Group     *string      `json:"group"`
 }

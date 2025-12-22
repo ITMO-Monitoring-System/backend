@@ -15,6 +15,7 @@ type User struct {
 	FirstName  string
 	LastName   string
 	Patronymic *string
+	GroupCode  *string
 }
 
 type UserFaces struct {

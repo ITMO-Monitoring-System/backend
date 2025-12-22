@@ -30,6 +30,7 @@ func (v *visitService) AddUserVisitsLecture(ctx context.Context, userID string, 
 			LastName:   user.LastName,
 			Patronymic: user.Patronymic,
 		},
+		Group: user.GroupCode,
 	}
 
 	return &response, nil
