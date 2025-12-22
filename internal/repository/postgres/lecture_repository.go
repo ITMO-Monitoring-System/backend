@@ -49,13 +49,11 @@ func (r *lectureRepository) ListByTeacher(ctx context.Context, teacherID string,
 	query := `
         SELECT id, date, subject_id, teacher_id
         FROM universities_data.lectures
-        WHERE teacher_id = $1 
-          AND date >= $2 
-          AND date <= $3
+        WHERE teacher_id = $1
         ORDER BY date
     `
 
-	rows, err := r.db.Query(ctx, query, teacherID, from, to)
+	rows, err := r.db.Query(ctx, query, teacherID)
 	if err != nil {
 		return nil, err
 	}
