@@ -84,7 +84,7 @@ func (f *UserFaces) requestEmbedding(photo []byte) ([]float32, error) {
 	req.Header.Set("Content-Type", "application/octet-stream")
 
 	client := &http.Client{
-		Timeout: time.Second * 30,
+		Timeout: time.Second * 120,
 	}
 
 	resp, err := client.Do(req)
