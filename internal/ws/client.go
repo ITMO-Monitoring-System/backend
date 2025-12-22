@@ -40,13 +40,13 @@ func (c *Client) Read() {
 			LectureID string `json:"lecture_id"`
 		}
 
-		lectureID, err := strconv.ParseInt(cmd.LectureID, 10, 64)
-		if err != nil {
-			log.Printf("WARN: failed to parse lecture id from conn: %s", cmd.LectureID)
+		if json.Unmarshal(msg, &cmd) != nil {
 			continue
 		}
 
-		if json.Unmarshal(msg, &cmd) != nil {
+		lectureID, err := strconv.ParseInt(cmd.LectureID, 10, 64)
+		if err != nil {
+			log.Printf("WARN: failed to parse lecture id from conn: %s", cmd.LectureID)
 			continue
 		}
 
