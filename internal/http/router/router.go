@@ -2,6 +2,12 @@ package router
 
 import (
 	"monitoring_backend/internal/http/handlers"
+	"monitoring_backend/internal/http/handlers/department"
+	"monitoring_backend/internal/http/handlers/group"
+	lecture2 "monitoring_backend/internal/http/handlers/lecture"
+	"monitoring_backend/internal/http/handlers/practice"
+	"monitoring_backend/internal/http/handlers/student_group"
+	"monitoring_backend/internal/http/handlers/subject"
 	"monitoring_backend/internal/http/handlers/user"
 	"monitoring_backend/internal/http/response"
 	"monitoring_backend/internal/lecture"
@@ -12,7 +18,23 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func New(h *handlers.Handler, wsHub *ws.Hub, lectureManager *lecture.Manager, userHandler *user.UserHandler) *mux.Router {
+
+type Dependencies struct {
+	Health *handlers.Handler
+
+	Department   *department.DepartmentHandler
+	Group        *group.GroupHandler
+	StudentGroup *student_group.StudentGroupHandler
+	Subject      *subject.SubjectHandler
+	Lecture      *lecture2.LectureHandler
+	Practice     *practice.PracticeHandler
+	User         *user.UserHandler
+
+	WsHub          *ws.Hub
+	LectureManager *lecture.Manager
+}
+
+func New(d Dependencies) *mux.Router {
 	r := mux.NewRouter()
 
 	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -29,6 +51,38 @@ func New(h *handlers.Handler, wsHub *ws.Hub, lectureManager *lecture.Manager, us
 	lectureGroup.HandleFunc("/start", lectureManager.StartLecture).Methods(http.MethodPost)
 	lectureGroup.HandleFunc("/stop", lectureManager.StopLecture).Methods(http.MethodPost)
 
+	api.HandleFunc("/departments", d.Department.List).Methods("GET")
+	api.HandleFunc("/departments/{id:[0-9]+}", d.Department.GetByID).Methods("GET")
+	api.HandleFunc("/departments/code/{code}", d.Department.GetByCode).Methods("GET")
+
+	api.HandleFunc("/departments/{department_id:[0-9]+}/groups", d.Group.ListByDepartment).Methods("GET")
+	api.HandleFunc("/groups/{code}", d.Group.GetByCode).Methods("GET")
+
+	api.HandleFunc("/students/{isu}/group", d.StudentGroup.SetUserGroup).Methods("PUT")
+	api.HandleFunc("/students/{isu}/group", d.StudentGroup.GetUserGroup).Methods("GET")
+	api.HandleFunc("/students/{isu}/group", d.StudentGroup.RemoveUserGroup).Methods("DELETE")
+	api.HandleFunc("/groups/{code}/students", d.StudentGroup.ListUsersByGroup).Methods("GET")
+
+	api.HandleFunc("/subjects", d.Subject.Create).Methods("POST")
+	api.HandleFunc("/subjects", d.Subject.List).Methods("GET")
+	api.HandleFunc("/subjects/{id:[0-9]+}", d.Subject.GetByID).Methods("GET")
+	api.HandleFunc("/subjects/by-name/{name}", d.Subject.GetByName).Methods("GET")
+
+	api.HandleFunc("/lectures", d.Lecture.Create).Methods("POST")
+	api.HandleFunc("/lectures/{id:[0-9]+}", d.Lecture.GetByID).Methods("GET")
+	api.HandleFunc("/teachers/{isu}/lectures", d.Lecture.ListByTeacher).Methods("GET")
+	api.HandleFunc("/subjects/{id:[0-9]+}/lectures", d.Lecture.ListBySubject).Methods("GET")
+	api.HandleFunc("/groups/{code}/lectures", d.Lecture.ListByGroup).Methods("GET")
+
+	api.HandleFunc("/practices", d.Practice.Create).Methods("POST")
+	api.HandleFunc("/practices/{id:[0-9]+}", d.Practice.GetByID).Methods("GET")
+	api.HandleFunc("/teachers/{isu}/practices", d.Practice.ListByTeacher).Methods("GET")
+	api.HandleFunc("/subjects/{id:[0-9]+}/practices", d.Practice.ListBySubject).Methods("GET")
+	api.HandleFunc("/groups/{code}/practices", d.Practice.ListByGroup).Methods("GET")
+
+	api.HandleFunc("/lecture/start", d.LectureManager.StartLecture).Methods(http.MethodPost)
+	api.HandleFunc("/lecture/stop", d.LectureManager.StopLecture).Methods(http.MethodPost)
+  
 	// cores
 	userGroup := api.PathPrefix("/user").Subrouter()
 	userGroup.HandleFunc("/create", userHandler.AddUser).Methods(http.MethodPost)

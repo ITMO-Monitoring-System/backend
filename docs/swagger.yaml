@@ -1,5 +1,79 @@
 basePath: /
 definitions:
+  department.DepartmentResponse:
+    properties:
+      alias:
+        type: string
+      code:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  department.ListDepartmentsResponse:
+    properties:
+      departments:
+        items:
+          $ref: '#/definitions/department.DepartmentResponse'
+        type: array
+      has_more:
+        type: boolean
+    type: object
+  group.GroupResponse:
+    properties:
+      code:
+        type: string
+      department_id:
+        type: integer
+    type: object
+  lecture.CreateLectureRequest:
+    properties:
+      date:
+        type: string
+      group_ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+      id:
+        type: integer
+      subject_id:
+        type: integer
+      teacher_id:
+        type: string
+    required:
+    - date
+    - group_ids
+    - subject_id
+    - teacher_id
+    type: object
+  lecture.LectureListItemResponse:
+    properties:
+      date:
+        type: string
+      id:
+        type: integer
+      subject_id:
+        type: integer
+      teacher_id:
+        type: string
+    type: object
+  lecture.LectureResponse:
+    properties:
+      date:
+        type: string
+      group_ids:
+        items:
+          type: string
+        type: array
+      id:
+        type: integer
+      subject_id:
+        type: integer
+      teacher_id:
+        type: string
+    type: object
   lecture.StartLectureRequest:
     properties:
       lecture_id:
@@ -12,9 +86,96 @@ definitions:
       lecture_id:
         type: integer
     type: object
+  practice.CreatePracticeRequest:
+    properties:
+      date:
+        type: string
+      group_ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+      id:
+        type: integer
+      subject_id:
+        type: integer
+      teacher_id:
+        type: string
+    required:
+    - date
+    - group_ids
+    - subject_id
+    - teacher_id
+    type: object
+  practice.PracticeListItemResponse:
+    properties:
+      date:
+        type: string
+      id:
+        type: integer
+      subject_id:
+        type: integer
+      teacher_id:
+        type: string
+    type: object
+  practice.PracticeResponse:
+    properties:
+      date:
+        type: string
+      group_ids:
+        items:
+          type: string
+        type: array
+      id:
+        type: integer
+      subject_id:
+        type: integer
+      teacher_id:
+        type: string
+    type: object
   response.ErrorResponse:
     properties:
       error:
+        type: string
+    type: object
+  student_group.ListUsersByGroupResponse:
+    properties:
+      user_ids:
+        items:
+          type: string
+        type: array
+    type: object
+  student_group.SetUserGroupRequest:
+    properties:
+      group_code:
+        type: string
+      user_id:
+        type: string
+    required:
+    - group_code
+    - user_id
+    type: object
+  student_group.StudentGroupResponse:
+    properties:
+      group_code:
+        type: string
+      user_id:
+        type: string
+    type: object
+  subject.CreateSubjectRequest:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  subject.SubjectResponse:
+    properties:
+      id:
+        type: integer
+      name:
         type: string
     type: object
   user.AddUserRequest:
