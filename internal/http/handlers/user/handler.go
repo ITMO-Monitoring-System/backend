@@ -3,8 +3,13 @@ package user
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"monitoring_backend/internal/http/response"
 	"net/http"
+
+	"github.com/gorilla/mux"
+
+	"fmt"
 )
 
 type UserService interface {
@@ -46,4 +51,69 @@ func (h *UserHandler) AddUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.WriteJSON(w, http.StatusCreated, "ok")
+}
+
+// UploadFaces godoc
+// @Summary      Загрузка фотографий лица студента
+// @Description  Загружает три фотографии (левая, правая, фронтальная) студента и сохраняет их в сервисе.
+// @Tags         users
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        isu          path      string                 true  "ISU студента"
+// @Param        left_face    formData  file                   true  "Фотография левой стороны лица"
+// @Param        right_face   formData  file                   true  "Фотография правой стороны лица"
+// @Param        center_face  formData  file                   true  "Фотография фронтальной стороны лица"
+// @Success      200          {string}  string                 "ok"
+// @Failure      400          {object}  response.ErrorResponse        "Некорректный ISU или отсутствуют файлы"
+// @Failure      500          {object}  response.ErrorResponse        "Ошибка сервиса при добавлении фотографий"
+// @Router       /upload/faces/{isu} [post]
+func (h *UserHandler) UploadFaces(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	isu := vars["isu"]
+
+	if isu == "" {
+		response.WriteError(w, http.StatusBadRequest, "Incorrect isu in path")
+		return
+	}
+
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		response.WriteError(w, http.StatusBadRequest, "cannot parse multipart form: "+err.Error())
+		return
+	}
+
+	photos := [3]string{"left_face", "right_face", "center_face"}
+	photosBytes := make(map[string][]byte)
+
+	for _, key := range photos {
+		file, _, err := r.FormFile(key)
+		if err != nil {
+			response.WriteError(w, http.StatusBadRequest, fmt.Sprintf("missing file: %s", key))
+			return
+		}
+		defer file.Close()
+
+		data, err := io.ReadAll(file)
+		if err != nil {
+			response.WriteError(w, http.StatusBadRequest, fmt.Sprintf("cannot read file: %s", key))
+			return
+		}
+
+		photosBytes[key] = data
+
+	}
+
+	request := AddUserFacesRequest{
+		ISU: isu,
+		LeftFacePhoto: photosBytes["left_face"],
+		RightFacePhoto: photosBytes["right_face"],
+		CenterFacePhoto: photosBytes["center_face"],
+	}
+
+	err := h.userService.AddUserFaces(r.Context(), request)
+	if err != nil {
+		response.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, "ok")
 }

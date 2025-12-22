@@ -23,7 +23,7 @@ func (s *userService) AddUser(ctx context.Context, request http.AddUserRequest) 
 		Patronymic: request.Patronymic,
 	}
 
-	err := s.userRepo.Create(ctx, user)
+	err := s.userRepo.Create(ctx, &user)
 	if err != nil {
 		return err
 	}
@@ -32,5 +32,24 @@ func (s *userService) AddUser(ctx context.Context, request http.AddUserRequest) 
 }
 
 func (s *userService) AddUserFaces(ctx context.Context, request http.AddUserFacesRequest) error {
-	panic("implement me")
+	user := domain.UserFaces{
+		User: domain.User{
+			ISU: request.ISU,
+		},
+		LeftFace: request.LeftFacePhoto,
+		RightFace: request.RightFacePhoto,
+		CenterFace: request.CenterFacePhoto,
+	}
+
+	err := user.GenerateEmbeddings()
+	if err != nil {
+		return err
+	}
+
+	err = s.userRepo.AddFaceEmbeddings(ctx, &user)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

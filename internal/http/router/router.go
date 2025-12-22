@@ -32,6 +32,7 @@ func New(h *handlers.Handler, wsHub *ws.Hub, lectureManager *lecture.Manager, us
 	// cores
 	userGroup := api.PathPrefix("/user").Subrouter()
 	userGroup.HandleFunc("/create", userHandler.AddUser).Methods(http.MethodPost)
+	userGroup.HandleFunc("/upload/faces/{isu}", userHandler.UploadFaces)
 
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 

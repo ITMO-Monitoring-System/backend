@@ -198,6 +198,71 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/upload/faces/{isu}": {
+            "post": {
+                "description": "Загружает три фотографии (левая, правая, фронтальная) студента и сохраняет их в сервисе.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Загрузка фотографий лица студента",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ISU студента",
+                        "name": "isu",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Фотография левой стороны лица",
+                        "name": "left_face",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Фотография правой стороны лица",
+                        "name": "right_face",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Фотография фронтальной стороны лица",
+                        "name": "center_face",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный ISU или отсутствуют файлы",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервиса при добавлении фотографий",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
