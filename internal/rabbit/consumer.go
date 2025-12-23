@@ -16,16 +16,28 @@ import (
 func StartConsumer(ctx context.Context, amqpURL string, queue string, lectureID int64, hub *ws.Hub) {
 	backoff := 1 * time.Second
 	maxBackoff := 20 * time.Second
+	connectCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 
 	for {
+		select {
+		case <-connectCtx.Done():
+			return
+		default:
+		}
+
 		err := consumeOnce(ctx, amqpURL, queue, lectureID, hub)
-		log.Printf("rabbit consumer stopped (lecture_id=%d queue=%s): %v", lectureID, queue, err)
 		if err == nil {
 			log.Printf("rabbit consumer stopped (lecture_id=%d queue=%s)", lectureID, queue)
 			return
 		}
 
-		time.Sleep(backoff)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+
 		backoff *= 2
 		if backoff > maxBackoff {
 			backoff = maxBackoff
@@ -78,7 +90,6 @@ func consumeOnce(ctx context.Context, amqpURL string, queue string, lectureID in
 			if !ok {
 				return amqp.ErrClosed
 			}
-			log.Printf("INFO - Received message: %s from: %s", msg.MessageId, queue)
 
 			if isLectureEnd(msg.Body) {
 				_ = msg.Ack(false)

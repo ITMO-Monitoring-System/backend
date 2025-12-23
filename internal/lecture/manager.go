@@ -100,6 +100,7 @@ func (m *Manager) StopLecture(w http.ResponseWriter, r *http.Request) {
 
 	m.running[req.LectureID]()
 	delete(m.running, req.LectureID)
+	delete(m.started, req.LectureID)
 
 	response.WriteJSON(w, http.StatusOK, "ok")
 }

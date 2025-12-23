@@ -96,6 +96,6 @@ func (h *Hub) Broadcast(lectureID int64, data []byte) {
 	// 2. отправка БЕЗ mutex
 	for _, c := range clients {
 		c.send <- data
-		log.Printf("INFO: send to %s - body: %v", c.conn.RemoteAddr().String(), user)
+		log.Printf("INFO: send to %s - body: %v", c.conn.RemoteAddr().String(), *user)
 	}
 }

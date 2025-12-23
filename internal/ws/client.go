@@ -71,6 +71,5 @@ func (c *Client) Write() {
 		if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 			return
 		}
-		log.Println("INFO: sent", string(msg))
 	}
 }
