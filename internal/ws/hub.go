@@ -80,11 +80,12 @@ func (h *Hub) Broadcast(lectureID int64, data []byte) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 
 	user, err := h.serv.AddUserVisitsLecture(ctx, request.PersonID, request.LectureID)
 	if err != nil {
+		log.Printf("ERROR: apply time of visit for %s - %v", request.PersonID, err)
 		return
 	}
 
