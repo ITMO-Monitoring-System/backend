@@ -137,7 +137,7 @@ func (h *UserHandler) UploadFaces(w http.ResponseWriter, r *http.Request) {
 // @Accept       json
 // @Produce      json
 // @Param Authorization header string true "Bearer <JWT>"
-// @Param        request body user.AddUserRoleRequest true "ISU и роль для добавления"
+// @Param        request body AddUserRoleRequest true "ISU и роль для добавления"
 // @Success      201 {string} string "ok"
 // @Failure      400 {object} response.ErrorResponse "Некорректный запрос"
 // @Failure      404 {object} response.ErrorResponse "Пользователь не найден"

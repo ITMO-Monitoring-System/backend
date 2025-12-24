@@ -16,8 +16,8 @@ type AddUserFacesRequest struct {
 }
 
 type AddUserRoleRequest struct {
-	ISU  string `json:"isu" validate:"required"`
-	Role string `json:"role" validate:"required"`
+	ISU  string `json:"isu"`
+	Role string `json:"role"`
 }
 
 type GetUserRolesResponse struct {
