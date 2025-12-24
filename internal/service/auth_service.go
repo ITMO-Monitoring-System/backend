@@ -6,7 +6,6 @@ import (
 	"monitoring_backend/internal/auth"
 	"monitoring_backend/internal/domain"
 	http "monitoring_backend/internal/http/handlers/auth"
-	"monitoring_backend/internal/service/common"
 	"strings"
 
 	"slices"
@@ -50,14 +49,9 @@ func (s *AuthService) Login(ctx context.Context, request http.LoginRequest) (*ht
 		return nil, ErrInvalidCredentials
 	}
 
-	reqPass, err := common.HashPassword(request.Password)
-	if err != nil {
-		return nil, err
-	}
-
 	err = bcrypt.CompareHashAndPassword(
 		[]byte(passwordHash),
-		[]byte(reqPass),
+		[]byte(request.Password),
 	)
 	if err != nil {
 		return nil, ErrInvalidCredentials
