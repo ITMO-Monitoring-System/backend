@@ -105,7 +105,7 @@ func New(d Dependencies) *mux.Router {
 	adminGroup.HandleFunc("/create", d.User.AddUser).Methods(http.MethodPost)
 	userGroup.HandleFunc("/upload/faces/{isu}", d.User.UploadFaces).Methods(http.MethodPost)
 	userGroup.HandleFunc("/roles", d.User.GetRoles).Methods(http.MethodGet)
-	adminGroup.HandleFunc("/roles", d.User.GetRoles).Methods(http.MethodPost)
+	adminGroup.HandleFunc("/roles", d.User.AddRole).Methods(http.MethodPost)
 
 	// services
 	serviceGroup := api.PathPrefix("/service").Subrouter()
