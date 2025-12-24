@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 
@@ -15,6 +17,8 @@ import (
 type UserService interface {
 	AddUser(ctx context.Context, request AddUserRequest) error
 	AddUserFaces(ctx context.Context, request AddUserFacesRequest) error
+	AddUserRole(ctx context.Context, request AddUserRoleRequest) error
+	GetUserRoles(ctx context.Context, isu string) ([]string, error)
 }
 
 type UserHandler struct {
@@ -33,12 +37,20 @@ func NewUserHandler(userService UserService) *UserHandler {
 // @Tags         users
 // @Accept       json
 // @Produce      json
+// @Param Authorization header string true "Bearer <JWT>"
 // @Param        user  body      AddUserRequest  true  "Пользователь для добавления"
 // @Success      201   {string}  string               "ok"
 // @Failure      400   {object}  response.ErrorResponse      "Некорректный JSON или обязательные поля отсутствуют"
 // @Failure      500   {object}  response.ErrorResponse      "Ошибка сервиса при добавлении пользователя"
-// @Router       /api/user/create [post]
+// @Security     BearerAuth
+// @Router       /api/user/admin/create [post]
 func (h *UserHandler) AddUser(w http.ResponseWriter, r *http.Request) {
+	role, ok := middleware.Role(r.Context())
+	if !ok || role != "admin" {
+		response.WriteError(w, http.StatusBadRequest, "Invalid role")
+		return
+	}
+
 	var request AddUserRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -116,4 +128,80 @@ func (h *UserHandler) UploadFaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.WriteJSON(w, http.StatusOK, "ok")
+}
+
+// AddRole godoc
+// @Summary      Добавить роль пользователю
+// @Description  Назначает роль пользователю. Принимает ISU и role в JSON.
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param Authorization header string true "Bearer <JWT>"
+// @Param        request body user.AddUserRoleRequest true "ISU и роль для добавления"
+// @Success      201 {string} string "ok"
+// @Failure      400 {object} response.ErrorResponse "Некорректный запрос"
+// @Failure      404 {object} response.ErrorResponse "Пользователь не найден"
+// @Failure      409 {object} response.ErrorResponse "Роль уже назначена"
+// @Failure      500 {object} response.ErrorResponse "Внутренняя ошибка"
+// @Security     BearerAuth
+// @Router       /api/user/admin/roles [post]
+func (h *UserHandler) AddRole(w http.ResponseWriter, r *http.Request) {
+	role, ok := middleware.Role(r.Context())
+	if !ok || role != "admin" {
+		response.WriteError(w, http.StatusBadRequest, "Invalid role")
+		return
+	}
+
+	var req AddUserRoleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	req.ISU = strings.TrimSpace(req.ISU)
+	req.Role = strings.TrimSpace(req.Role)
+
+	if req.ISU == "" || req.Role == "" {
+		response.WriteError(w, http.StatusBadRequest, "isu and role are required")
+		return
+	}
+
+	if err := h.userService.AddUserRole(r.Context(), req); err != nil {
+		response.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.WriteJSON(w, http.StatusCreated, "ok")
+}
+
+// GetRoles godoc
+// @Summary      Получить роли пользователя
+// @Description  Возвращает список ролей пользователя. ISU передаётся query-параметром ?isu=...
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        isu query string true "ISU пользователя"
+// @Success      200 {object} user.GetUserRolesResponse
+// @Failure      400 {object} response.ErrorResponse "Некорректный ISU"
+// @Failure      404 {object} response.ErrorResponse "Пользователь не найден"
+// @Failure      500 {object} response.ErrorResponse "Внутренняя ошибка"
+// @Router       /api/user/roles [get]
+func (h *UserHandler) GetRoles(w http.ResponseWriter, r *http.Request) {
+	isu := strings.TrimSpace(r.URL.Query().Get("isu"))
+	if isu == "" {
+		response.WriteError(w, http.StatusBadRequest, "isu is required")
+		return
+	}
+
+	roles, err := h.userService.GetUserRoles(r.Context(), isu)
+	if err != nil {
+		response.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	resp := GetUserRolesResponse{
+		ISU:   isu,
+		Roles: roles,
+	}
+	response.WriteJSON(w, http.StatusOK, resp)
 }

@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 // Config описывает все параметры приложения.
 type Config struct {
 	App      AppConfig      `toml:"app"`
@@ -7,6 +9,12 @@ type Config struct {
 	Postgres PostgresConfig `toml:"postgres"`
 	Logger   LoggerConfig   `toml:"logger"`
 	Rabbit   RabbitConfig   `toml:"rabbit"`
+	JWT      JWTConfig      `toml:"jwt"`
+}
+
+type JWTConfig struct {
+	Secret string        `toml:"secret"`
+	TTL    time.Duration `toml:"ttl"`
 }
 
 type RabbitConfig struct {

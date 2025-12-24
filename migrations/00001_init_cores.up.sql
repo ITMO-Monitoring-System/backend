@@ -17,3 +17,17 @@ create table if not exists cores.face_images (
     full_face_embedding float4[] NOT NULL,
     FOREIGN KEY (student_id) REFERENCES cores.users(isu)
 );
+
+create table if not exists cores.users_passwords (
+    isu text PRIMARY KEY,
+    password TEXT NOT NULL,
+    FOREIGN KEY (isu) REFERENCES cores.users(isu)
+);
+
+create table if not exists cores.users_roles (
+    id serial primary key,
+    isu text not null,
+    role varchar(125) not null,
+    unique (isu, role),
+    foreign key (isu) references cores.users(isu)
+);

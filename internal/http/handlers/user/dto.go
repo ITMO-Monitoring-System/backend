@@ -5,6 +5,7 @@ type AddUserRequest struct {
 	Name       string  `json:"name" validate:"required"`
 	LastName   string  `json:"last_name" validate:"required"`
 	Patronymic *string `json:"patronymic"`
+	Password   string  `json:"password" validate:"required"`
 }
 
 type AddUserFacesRequest struct {
@@ -12,4 +13,14 @@ type AddUserFacesRequest struct {
 	LeftFacePhoto   []byte `json:"left_face_photo"`
 	RightFacePhoto  []byte `json:"right_face_photo"`
 	CenterFacePhoto []byte `json:"center_face_photo"`
+}
+
+type AddUserRoleRequest struct {
+	ISU  string `json:"isu" validate:"required"`
+	Role string `json:"role" validate:"required"`
+}
+
+type GetUserRolesResponse struct {
+	ISU   string   `json:"isu"`
+	Roles []string `json:"roles"`
 }

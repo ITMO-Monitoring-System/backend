@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	jwt "monitoring_backend/internal/auth"
 	"monitoring_backend/internal/config"
+	"monitoring_backend/internal/http/handlers/auth"
 	"monitoring_backend/internal/http/handlers/service/dataset"
 	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/service/services"
@@ -36,7 +38,7 @@ type App struct {
 	server *http.Server
 }
 
-func New(cfg *config.Config, db *pgxpool.Pool) *App {
+func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App {
 	health := httpHandler.New(db)
 
 	// repositories
@@ -62,6 +64,7 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	lecServ := service.NewLectureService(db, lecRepo, lecGroupRepo)
 	pracServ := service.NewPracticeService(db, pracRepo, pracGroupRepo)
 	datasetServ := services.NewDatasetService(datasetRepo)
+	authServ := service.NewAuthService(userRepo, jwtManager)
 
 	// handlers
 	userHandler := user.NewUserHandler(userServ)
@@ -72,11 +75,13 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 	lecHandler := lecture2.NewLectureHandler(lecServ)
 	pracHandler := practice.NewPracticeHandler(pracServ)
 	datasetHandler := dataset.NewDatasetHandler(datasetServ)
+	authHandler := auth.NewAuthHandler(authServ)
 
 	wsHub := ws.NewHub(visitsServ)
 	lectureManager := lecture.NewManager(wsHub, cfg.Rabbit.AMPQURL)
 
 	r := httpRouter.New(httpRouter.Dependencies{
+		AuthHandler:    authHandler,
 		Health:         health,
 		Department:     deptHandler,
 		Group:          groupHandler,
@@ -88,6 +93,8 @@ func New(cfg *config.Config, db *pgxpool.Pool) *App {
 		WsHub:          wsHub,
 		LectureManager: lectureManager,
 		DataSet:        datasetHandler,
+
+		JWTManager: jwtManager,
 	})
 
 	handler := middleware.NewLoggingMiddleware(r)

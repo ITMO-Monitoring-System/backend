@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"monitoring_backend/internal/app"
+	"monitoring_backend/internal/auth"
 	"monitoring_backend/internal/config"
 )
 
@@ -38,7 +39,9 @@ func main() {
 		log.Fatalf("failed to ping postgres: %v", err)
 	}
 
-	a := app.New(cfg, db)
+	jwtManager := auth.NewJWTManager(cfg.JWT.Secret, cfg.JWT.TTL)
+
+	a := app.New(cfg, db, jwtManager)
 
 	if err := a.Run(ctx); err != nil {
 		log.Fatalf("app stopped with error: %v", err)

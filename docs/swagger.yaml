@@ -1,5 +1,19 @@
 basePath: /
 definitions:
+  auth.LoginRequest:
+    properties:
+      isu:
+        type: string
+      password:
+        type: string
+      role:
+        type: string
+    type: object
+  auth.LoginResponse:
+    properties:
+      access_token:
+        type: string
+    type: object
   dataset.DatasetResponse:
     properties:
       users_data:
@@ -210,12 +224,34 @@ definitions:
         type: string
       name:
         type: string
+      password:
+        type: string
       patronymic:
         type: string
     required:
     - isu
     - last_name
     - name
+    - password
+    type: object
+  user.AddUserRoleRequest:
+    properties:
+      isu:
+        type: string
+      role:
+        type: string
+    required:
+    - isu
+    - role
+    type: object
+  user.GetUserRolesResponse:
+    properties:
+      isu:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
     type: object
 info:
   contact: {}
@@ -223,6 +259,40 @@ info:
   title: Monitoring Backend API
   version: "1.0"
 paths:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Проверяет ISU и пароль, возвращает JWT access token
+      parameters:
+      - description: Данные для входа
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "400":
+          description: Некорректный JSON
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Неверные учетные данные
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Аутентификация пользователя
+      tags:
+      - auth
   /api/departments:
     get:
       description: Возвращает список департаментов с пагинацией.
@@ -1072,13 +1142,18 @@ paths:
       summary: List practices by teacher
       tags:
       - practices
-  /api/user/create:
+  /api/user/admin/create:
     post:
       consumes:
       - application/json
       description: Создаёт нового пользователя с ISU, именем, фамилией и факультативным
         отчеством.
       parameters:
+      - description: Bearer <JWT>
+        in: header
+        name: Authorization
+        required: true
+        type: string
       - description: Пользователь для добавления
         in: body
         name: user
@@ -1100,7 +1175,88 @@ paths:
           description: Ошибка сервиса при добавлении пользователя
           schema:
             $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Добавление нового пользователя
+      tags:
+      - users
+  /api/user/admin/roles:
+    post:
+      consumes:
+      - application/json
+      description: Назначает роль пользователю. Принимает ISU и role в JSON.
+      parameters:
+      - description: Bearer <JWT>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ISU и роль для добавления
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.AddUserRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: ok
+          schema:
+            type: string
+        "400":
+          description: Некорректный запрос
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Пользователь не найден
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Роль уже назначена
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Добавить роль пользователю
+      tags:
+      - users
+  /api/user/roles:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает список ролей пользователя. ISU передаётся query-параметром
+        ?isu=...
+      parameters:
+      - description: ISU пользователя
+        in: query
+        name: isu
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.GetUserRolesResponse'
+        "400":
+          description: Некорректный ISU
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Пользователь не найден
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Получить роли пользователя
       tags:
       - users
   /api/user/upload/faces/{isu}:

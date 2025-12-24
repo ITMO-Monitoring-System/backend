@@ -4,15 +4,13 @@ go 1.25
 
 require (
 	github.com/BurntSushi/toml v1.5.0
-	github.com/gorilla/handlers v1.5.2
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/swaggo/http-swagger v1.3.4
 )
-
-require github.com/felixge/httpsnoop v1.0.3 // indirect
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect

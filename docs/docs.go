@@ -15,6 +15,58 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/auth/login": {
+            "post": {
+                "description": "Проверяет ISU и пароль, возвращает JWT access token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Аутентификация пользователя",
+                "parameters": [
+                    {
+                        "description": "Данные для входа",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный JSON",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Неверные учетные данные",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/departments": {
             "get": {
                 "description": "Возвращает список департаментов с пагинацией.",
@@ -1304,8 +1356,13 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/user/create": {
+        "/api/user/admin/create": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Создаёт нового пользователя с ISU, именем, фамилией и факультативным отчеством.",
                 "consumes": [
                     "application/json"
@@ -1318,6 +1375,13 @@ const docTemplate = `{
                 ],
                 "summary": "Добавление нового пользователя",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer \u003cJWT\u003e",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "description": "Пользователь для добавления",
                         "name": "user",
@@ -1343,6 +1407,126 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Ошибка сервиса при добавлении пользователя",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/user/admin/roles": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Назначает роль пользователю. Принимает ISU и role в JSON.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Добавить роль пользователю",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer \u003cJWT\u003e",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "ISU и роль для добавления",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.AddUserRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный запрос",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Пользователь не найден",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Роль уже назначена",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/user/roles": {
+            "get": {
+                "description": "Возвращает список ролей пользователя. ISU передаётся query-параметром ?isu=...",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Получить роли пользователя",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ISU пользователя",
+                        "name": "isu",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/user.GetUserRolesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный ISU",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Пользователь не найден",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -1437,6 +1621,28 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "auth.LoginRequest": {
+            "type": "object",
+            "properties": {
+                "isu": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                }
+            }
+        },
         "dataset.DatasetResponse": {
             "type": "object",
             "properties": {
@@ -1750,7 +1956,8 @@ const docTemplate = `{
             "required": [
                 "isu",
                 "last_name",
-                "name"
+                "name",
+                "password"
             ],
             "properties": {
                 "isu": {
@@ -1762,8 +1969,40 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "password": {
+                    "type": "string"
+                },
                 "patronymic": {
                     "type": "string"
+                }
+            }
+        },
+        "user.AddUserRoleRequest": {
+            "type": "object",
+            "required": [
+                "isu",
+                "role"
+            ],
+            "properties": {
+                "isu": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.GetUserRolesResponse": {
+            "type": "object",
+            "properties": {
+                "isu": {
+                    "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         }

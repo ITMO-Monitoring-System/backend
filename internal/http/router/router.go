@@ -1,7 +1,9 @@
 package router
 
 import (
+	auth2 "monitoring_backend/internal/auth"
 	"monitoring_backend/internal/http/handlers"
+	"monitoring_backend/internal/http/handlers/auth"
 	"monitoring_backend/internal/http/handlers/department"
 	"monitoring_backend/internal/http/handlers/group"
 	lecture2 "monitoring_backend/internal/http/handlers/lecture"
@@ -10,6 +12,7 @@ import (
 	"monitoring_backend/internal/http/handlers/student_group"
 	"monitoring_backend/internal/http/handlers/subject"
 	"monitoring_backend/internal/http/handlers/user"
+	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
 	"monitoring_backend/internal/lecture"
 	"monitoring_backend/internal/ws"
@@ -21,6 +24,8 @@ import (
 
 type Dependencies struct {
 	Health *handlers.Handler
+
+	AuthHandler *auth.AuthHandler
 
 	Department   *department.DepartmentHandler
 	Group        *group.GroupHandler
@@ -34,10 +39,13 @@ type Dependencies struct {
 
 	WsHub          *ws.Hub
 	LectureManager *lecture.Manager
+	JWTManager     *auth2.JWTManager
 }
 
 func New(d Dependencies) *mux.Router {
 	r := mux.NewRouter()
+
+	jwtMW := middleware.JWT(d.JWTManager)
 
 	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, http.StatusNotFound, "not_found")
@@ -47,6 +55,10 @@ func New(d Dependencies) *mux.Router {
 
 	api.HandleFunc("/health", d.Health.Health).Methods(http.MethodGet)
 	api.HandleFunc("/ws", ws.Handler(d.WsHub))
+
+	// auth
+	authGroup := r.PathPrefix("/auth").Subrouter()
+	authGroup.HandleFunc("/login", d.AuthHandler.Login).Methods(http.MethodPost)
 
 	// lectures
 	lectureGroup := api.PathPrefix("/lecture").Subrouter()
@@ -87,8 +99,13 @@ func New(d Dependencies) *mux.Router {
 
 	// cores
 	userGroup := api.PathPrefix("/user").Subrouter()
-	userGroup.HandleFunc("/create", d.User.AddUser).Methods(http.MethodPost)
-	userGroup.HandleFunc("/upload/faces/{isu}", d.User.UploadFaces)
+	adminGroup := api.PathPrefix("/admin").Subrouter()
+	adminGroup.Use(jwtMW)
+
+	adminGroup.HandleFunc("/create", d.User.AddUser).Methods(http.MethodPost)
+	userGroup.HandleFunc("/upload/faces/{isu}", d.User.UploadFaces).Methods(http.MethodPost)
+	userGroup.HandleFunc("/roles", d.User.GetRoles).Methods(http.MethodGet)
+	adminGroup.HandleFunc("/roles", d.User.GetRoles).Methods(http.MethodPost)
 
 	// services
 	serviceGroup := api.PathPrefix("/service").Subrouter()
