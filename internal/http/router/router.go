@@ -57,7 +57,7 @@ func New(d Dependencies) *mux.Router {
 	api.HandleFunc("/ws", ws.Handler(d.WsHub))
 
 	// auth
-	authGroup := r.PathPrefix("/auth").Subrouter()
+	authGroup := api.PathPrefix("/auth").Subrouter()
 	authGroup.HandleFunc("/login", d.AuthHandler.Login).Methods(http.MethodPost)
 
 	// lectures
