@@ -3,7 +3,6 @@ package lecture
 import "time"
 
 type CreateLectureRequest struct {
-	ID        int64     `json:"id,omitempty" validate:"omitempty,gt=0"`
 	Date      time.Time `json:"date" validate:"required"`
 	SubjectID int64     `json:"subject_id" validate:"required,gt=0"`
 	TeacherID string    `json:"teacher_id" validate:"required"`

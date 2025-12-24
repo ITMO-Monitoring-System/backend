@@ -33,7 +33,7 @@ type SubjectRepository interface {
 }
 
 type LectureRepository interface {
-	Create(ctx context.Context, l domain.Lecture) error
+	Create(ctx context.Context, l domain.Lecture) (int64, error)
 	GetByID(ctx context.Context, id int64) (domain.Lecture, error)
 	ListByTeacher(ctx context.Context, teacherID string, from, to time.Time) ([]domain.Lecture, error)
 	ListBySubject(ctx context.Context, subjectID int64, from, to time.Time) ([]domain.Lecture, error)

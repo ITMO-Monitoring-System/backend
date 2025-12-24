@@ -17,14 +17,16 @@ func NewLectureRepository(db *pgxpool.Pool) LectureRepository {
 	return &lectureRepository{db: db}
 }
 
-func (r *lectureRepository) Create(ctx context.Context, l domain.Lecture) error {
+func (r *lectureRepository) Create(ctx context.Context, l domain.Lecture) (int64, error) {
 	query := `
-        INSERT INTO universities_data.lectures (id, date, subject_id, teacher_id)
-        VALUES ($1, $2, $3, $4)
-    `
+		INSERT INTO universities_data.lectures (date, subject_id, teacher_id)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`
 
-	_, err := r.db.Exec(ctx, query, l.ID, l.Date, l.SubjectID, l.TeacherID)
-	return err
+	var id int64
+	err := r.db.QueryRow(ctx, query, l.Date, l.SubjectID, l.TeacherID).Scan(&id)
+	return id, err
 }
 
 func (r *lectureRepository) GetByID(ctx context.Context, id int64) (domain.Lecture, error) {

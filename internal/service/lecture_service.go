@@ -25,23 +25,15 @@ func NewLectureService(db *pgxpool.Pool, lectures postgres.LectureRepository, le
 }
 
 func (s *LectureService) Create(ctx context.Context, req lectdto.CreateLectureRequest) (lectdto.LectureResponse, error) {
-	id := req.ID
-	if id == 0 {
-		var err error
-		id, err = nextID(ctx, s.db, "universities_data.lectures_id_seq")
-		if err != nil {
-			return lectdto.LectureResponse{}, err
-		}
-	}
-
 	l := domain.Lecture{
-		ID:        id,
+		// ID не задаём
 		Date:      req.Date,
 		SubjectID: req.SubjectID,
 		TeacherID: req.TeacherID,
 	}
 
-	if err := s.lectures.Create(ctx, l); err != nil {
+	id, err := s.lectures.Create(ctx, l)
+	if err != nil {
 		return lectdto.LectureResponse{}, err
 	}
 
