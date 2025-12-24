@@ -12,6 +12,7 @@ type LectureVisitRepository interface {
 	Exists(ctx context.Context, lectureID int64, userID string) (bool, error)
 	ListByLecture(ctx context.Context, lectureID int64) ([]domain.LectureVisit, error)
 	ListByUser(ctx context.Context, userID string, from, to time.Time) ([]domain.LectureVisit, error)
+	ListVisitedSubjectsByISU(ctx context.Context, isu string) ([]domain.Subject, error)
 }
 
 type PracticeVisitRepository interface {

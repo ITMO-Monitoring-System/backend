@@ -82,3 +82,39 @@ func (v *lectureVisitsRepository) ListByUser(ctx context.Context, userID string,
 	//TODO implement me
 	panic("implement me")
 }
+
+func (r *lectureVisitsRepository) ListVisitedSubjectsByISU(ctx context.Context, isu string) ([]domain.Subject, error) {
+	const q = `
+		SELECT DISTINCT
+			s.id,
+			s.name
+		FROM visits.lectures_visiting lv
+		JOIN universities_data.lectures l
+			ON l.id = lv.lecture_id
+		JOIN universities_data.subjects s
+			ON s.id = l.subject_id
+		WHERE lv.user_id = $1
+		ORDER BY s.name;
+	`
+
+	rows, err := r.db.Query(ctx, q, isu)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	subjects := make([]domain.Subject, 0)
+	for rows.Next() {
+		var s domain.Subject
+		if err := rows.Scan(&s.ID, &s.Name); err != nil {
+			return nil, err
+		}
+		subjects = append(subjects, s)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return subjects, nil
+}

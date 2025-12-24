@@ -8,6 +8,7 @@ import (
 	"monitoring_backend/internal/config"
 	"monitoring_backend/internal/http/handlers/auth"
 	"monitoring_backend/internal/http/handlers/service/dataset"
+	"monitoring_backend/internal/http/handlers/visits"
 	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/service/services"
 
@@ -76,6 +77,7 @@ func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App 
 	pracHandler := practice.NewPracticeHandler(pracServ)
 	datasetHandler := dataset.NewDatasetHandler(datasetServ)
 	authHandler := auth.NewAuthHandler(authServ)
+	visitsHandler := visits.NewVisitsHandler(visitsServ)
 
 	wsHub := ws.NewHub(visitsServ)
 	lectureManager := lecture.NewManager(wsHub, cfg.Rabbit.AMPQURL)
@@ -93,6 +95,7 @@ func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App 
 		WsHub:          wsHub,
 		LectureManager: lectureManager,
 		DataSet:        datasetHandler,
+		VisitsHandler:  visitsHandler,
 
 		JWTManager: jwtManager,
 	})

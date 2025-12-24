@@ -74,8 +74,6 @@ definitions:
           type: string
         minItems: 1
         type: array
-      id:
-        type: integer
       subject_id:
         type: integer
       teacher_id:
@@ -240,9 +238,6 @@ definitions:
         type: string
       role:
         type: string
-    required:
-    - isu
-    - role
     type: object
   user.GetUserRolesResponse:
     properties:
@@ -252,6 +247,22 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  visits.GetVisitedSubjectsResponse:
+    properties:
+      isu:
+        type: string
+      subjects:
+        items:
+          $ref: '#/definitions/visits.SubjectDTO'
+        type: array
+    type: object
+  visits.SubjectDTO:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
     type: object
 info:
   contact: {}
@@ -1304,6 +1315,38 @@ paths:
       summary: Загрузка фотографий лица студента
       tags:
       - users
+  /api/visits/lectures/subjects:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает уникальный список предметов (subjects), по которым есть
+        записи в visits.lectures_visiting для указанного isu.
+      parameters:
+      - description: Bearer <JWT>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/visits.GetVisitedSubjectsResponse'
+        "400":
+          description: isu is required
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: internal error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Получить предметы, по которым студент посещал лекции
+      tags:
+      - visits
   /api/ws:
     get:
       description: |-

@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"monitoring_backend/internal/domain"
 	"monitoring_backend/internal/repository/postgres"
 	"monitoring_backend/internal/ws"
+	"strings"
 	"time"
 )
 
@@ -34,4 +36,13 @@ func (v *visitService) AddUserVisitsLecture(ctx context.Context, userID string, 
 	}
 
 	return &response, nil
+}
+
+func (s *visitService) GetVisitedSubjectsByISU(ctx context.Context, isu string) ([]domain.Subject, error) {
+	isu = strings.TrimSpace(isu)
+	if isu == "" {
+		return nil, fmt.Errorf("isu is empty")
+	}
+
+	return s.repo.ListVisitedSubjectsByISU(ctx, isu)
 }

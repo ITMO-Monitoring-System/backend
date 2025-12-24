@@ -12,6 +12,7 @@ import (
 	"monitoring_backend/internal/http/handlers/student_group"
 	"monitoring_backend/internal/http/handlers/subject"
 	"monitoring_backend/internal/http/handlers/user"
+	"monitoring_backend/internal/http/handlers/visits"
 	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
 	"monitoring_backend/internal/lecture"
@@ -27,13 +28,14 @@ type Dependencies struct {
 
 	AuthHandler *auth.AuthHandler
 
-	Department   *department.DepartmentHandler
-	Group        *group.GroupHandler
-	StudentGroup *student_group.StudentGroupHandler
-	Subject      *subject.SubjectHandler
-	Lecture      *lecture2.LectureHandler
-	Practice     *practice.PracticeHandler
-	User         *user.UserHandler
+	Department    *department.DepartmentHandler
+	Group         *group.GroupHandler
+	StudentGroup  *student_group.StudentGroupHandler
+	Subject       *subject.SubjectHandler
+	Lecture       *lecture2.LectureHandler
+	Practice      *practice.PracticeHandler
+	User          *user.UserHandler
+	VisitsHandler *visits.VisitsHandler
 
 	DataSet *dataset.DatasetHandler
 
@@ -96,6 +98,11 @@ func New(d Dependencies) *mux.Router {
 
 	api.HandleFunc("/lecture/start", d.LectureManager.StartLecture).Methods(http.MethodPost)
 	api.HandleFunc("/lecture/stop", d.LectureManager.StopLecture).Methods(http.MethodPost)
+
+	// visits
+	visitsGroup := api.PathPrefix("/visits").Subrouter()
+	visitsGroup.Use(jwtMW)
+	visitsGroup.HandleFunc("/lectures/subjects", d.VisitsHandler.GetVisitedSubjects).Methods(http.MethodGet)
 
 	// cores
 	userGroup := api.PathPrefix("/user").Subrouter()

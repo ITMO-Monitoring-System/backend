@@ -1599,6 +1599,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/visits/lectures/subjects": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает уникальный список предметов (subjects), по которым есть записи в visits.lectures_visiting для указанного isu.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "Получить предметы, по которым студент посещал лекции",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer \u003cJWT\u003e",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/visits.GetVisitedSubjectsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "isu is required",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/ws": {
             "get": {
                 "description": "Establishes a WebSocket connection for real-time lecture data streaming.\n\nConnection flow:\n1. Client opens WebSocket connection to this endpoint.\n2. After connection client sends control messages to manage subscriptions.\n3. Server sends data only for lectures the client is subscribed to.\n\nClient control messages:\n- Subscribe to lecture: action=subscribe, lecture_id=\u003clecture identifier\u003e\n- Unsubscribe from lecture: action=unsubscribe, lecture_id=\u003clecture identifier\u003e\n\nSubscription rules:\n- One client may subscribe to multiple lectures.\n- Unsubscribed lectures will no longer send data.\n- If the client disconnects, all subscriptions are removed automatically.\n\nServer messages:\n- Server sends lecture data as JSON messages.\n- Message payload corresponds to data received from RabbitMQ.\n- Exact message schema depends on the physical model and may be extended in the future.\n\nFuture extensions:\n- Additional message types (errors, control events).\n- Extended payload schemas.",
@@ -1740,9 +1789,6 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
-                },
-                "id": {
-                    "type": "integer"
                 },
                 "subject_id": {
                     "type": "integer"
@@ -1979,10 +2025,6 @@ const docTemplate = `{
         },
         "user.AddUserRoleRequest": {
             "type": "object",
-            "required": [
-                "isu",
-                "role"
-            ],
             "properties": {
                 "isu": {
                     "type": "string"
@@ -2003,6 +2045,31 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "visits.GetVisitedSubjectsResponse": {
+            "type": "object",
+            "properties": {
+                "isu": {
+                    "type": "string"
+                },
+                "subjects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/visits.SubjectDTO"
+                    }
+                }
+            }
+        },
+        "visits.SubjectDTO": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         }
