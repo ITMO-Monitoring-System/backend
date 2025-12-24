@@ -99,7 +99,7 @@ func New(d Dependencies) *mux.Router {
 
 	// cores
 	userGroup := api.PathPrefix("/user").Subrouter()
-	adminGroup := api.PathPrefix("/admin").Subrouter()
+	adminGroup := userGroup.PathPrefix("/admin").Subrouter()
 	adminGroup.Use(jwtMW)
 
 	adminGroup.HandleFunc("/create", d.User.AddUser).Methods(http.MethodPost)
