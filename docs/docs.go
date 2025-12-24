@@ -1648,6 +1648,97 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/visits/lectures/{subject_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает лекции по предмету (сортировка по дате) и время присутствия студента на каждой лекции (секунды). ISU берётся из JWT.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "Лекции студента по предмету",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID предмета",
+                        "name": "subject_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Начало периода (RFC3339 или YYYY-MM-DD)",
+                        "name": "date_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Конец периода (RFC3339 или YYYY-MM-DD)",
+                        "name": "date_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Сортировка по дате: asc или desc (по умолчанию desc)",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Страница (по умолчанию 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Размер страницы (по умолчанию 20)",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Максимальный разрыв между снапшотами для склейки (сек), по умолчанию 120",
+                        "name": "gap_seconds",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/visits.GetStudentLecturesBySubjectResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/ws": {
             "get": {
                 "description": "Establishes a WebSocket connection for real-time lecture data streaming.\n\nConnection flow:\n1. Client opens WebSocket connection to this endpoint.\n2. After connection client sends control messages to manage subscriptions.\n3. Server sends data only for lectures the client is subscribed to.\n\nClient control messages:\n- Subscribe to lecture: action=subscribe, lecture_id=\u003clecture identifier\u003e\n- Unsubscribe from lecture: action=unsubscribe, lecture_id=\u003clecture identifier\u003e\n\nSubscription rules:\n- One client may subscribe to multiple lectures.\n- Unsubscribed lectures will no longer send data.\n- If the client disconnects, all subscriptions are removed automatically.\n\nServer messages:\n- Server sends lecture data as JSON messages.\n- Message payload corresponds to data received from RabbitMQ.\n- Exact message schema depends on the physical model and may be extended in the future.\n\nFuture extensions:\n- Additional message types (errors, control events).\n- Extended payload schemas.",
@@ -2048,6 +2139,26 @@ const docTemplate = `{
                 }
             }
         },
+        "visits.GetStudentLecturesBySubjectResponse": {
+            "type": "object",
+            "properties": {
+                "isu": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/visits.LectureAttendanceItem"
+                    }
+                },
+                "meta": {
+                    "$ref": "#/definitions/visits.PageMeta"
+                },
+                "subject_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "visits.GetVisitedSubjectsResponse": {
             "type": "object",
             "properties": {
@@ -2059,6 +2170,38 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/visits.SubjectDTO"
                     }
+                }
+            }
+        },
+        "visits.LectureAttendanceItem": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "description": "RFC3339",
+                    "type": "string"
+                },
+                "lecture_id": {
+                    "type": "integer"
+                },
+                "present_seconds": {
+                    "type": "integer"
+                },
+                "teacher_isu": {
+                    "type": "string"
+                }
+            }
+        },
+        "visits.PageMeta": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },

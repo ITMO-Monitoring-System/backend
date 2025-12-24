@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"monitoring_backend/internal/domain"
+	"monitoring_backend/internal/http/handlers/visits"
 	"monitoring_backend/internal/repository/postgres"
 	"monitoring_backend/internal/ws"
 	"strings"
@@ -45,4 +46,15 @@ func (s *visitService) GetVisitedSubjectsByISU(ctx context.Context, isu string) 
 	}
 
 	return s.repo.ListVisitedSubjectsByISU(ctx, isu)
+}
+
+func (s *visitService) GetStudentLecturesBySubject(ctx context.Context, isu string, subjectID int64, filter visits.GetLecturesFilter) ([]visits.LectureAttendance, int, error) {
+	isu = strings.TrimSpace(isu)
+	if isu == "" {
+		return nil, 0, fmt.Errorf("isu is empty")
+	}
+	if subjectID <= 0 {
+		return nil, 0, fmt.Errorf("invalid subject_id")
+	}
+	return s.repo.ListStudentLecturesBySubject(ctx, isu, subjectID, filter)
 }

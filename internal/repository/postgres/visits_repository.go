@@ -2,7 +2,10 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 	"monitoring_backend/internal/domain"
+	"monitoring_backend/internal/http/handlers/visits"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -117,4 +120,96 @@ func (r *lectureVisitsRepository) ListVisitedSubjectsByISU(ctx context.Context, 
 	}
 
 	return subjects, nil
+}
+
+func (r *lectureVisitsRepository) ListStudentLecturesBySubject(ctx context.Context, isu string, subjectID int64, filter visits.GetLecturesFilter) ([]visits.LectureAttendance, int, error) {
+	isu = strings.TrimSpace(isu)
+	if isu == "" {
+		return nil, 0, fmt.Errorf("isu is empty")
+	}
+
+	order := "DESC"
+	if strings.ToLower(filter.Order) == "asc" {
+		order = "ASC"
+	}
+
+	limit := filter.PageSize
+	offset := (filter.Page - 1) * filter.PageSize
+
+	// 1) total (для пагинации): сколько лекций по subject у этого teacher/студента (без учёта снапшотов)
+	totalQuery := `
+		SELECT COUNT(*)
+		FROM universities_data.lectures l
+		WHERE l.subject_id = $1
+		  AND ($2::timestamptz IS NULL OR l.date >= $2)
+		  AND ($3::timestamptz IS NULL OR l.date <= $3)
+		  AND EXISTS (
+			  SELECT 1
+			  FROM visits.lectures_visiting lv
+			  WHERE lv.lecture_id = l.id
+			    AND lv.user_id = $4
+		  );
+	`
+
+	var total int
+	if err := r.db.QueryRow(ctx, totalQuery, subjectID, filter.DateFrom, filter.DateTo, isu).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// 2) list with present_seconds per lecture
+	// present_seconds считаем через LEAD(date) и суммирование разницы, если gap <= filter.GapSeconds
+	listQuery := fmt.Sprintf(`
+		WITH snaps AS (
+			SELECT
+				lv.lecture_id,
+				lv.date AS snap_time,
+				LEAD(lv.date) OVER (PARTITION BY lv.lecture_id ORDER BY lv.date) AS next_time
+			FROM visits.lectures_visiting lv
+			JOIN universities_data.lectures l ON l.id = lv.lecture_id
+			WHERE lv.user_id = $1
+			  AND l.subject_id = $2
+			  AND ($3::timestamptz IS NULL OR l.date >= $3)
+			  AND ($4::timestamptz IS NULL OR l.date <= $4)
+		)
+		SELECT
+			l.id,
+			l.date,
+			l.teacher_id,
+			COALESCE(SUM(
+				CASE
+					WHEN s.next_time IS NOT NULL
+					 AND EXTRACT(EPOCH FROM (s.next_time - s.snap_time)) <= $5
+					THEN EXTRACT(EPOCH FROM (s.next_time - s.snap_time))
+					ELSE 0
+				END
+			), 0)::bigint AS present_seconds
+		FROM universities_data.lectures l
+		JOIN snaps s ON s.lecture_id = l.id
+		WHERE l.subject_id = $2
+		  AND ($3::timestamptz IS NULL OR l.date >= $3)
+		  AND ($4::timestamptz IS NULL OR l.date <= $4)
+		GROUP BY l.id, l.date, l.teacher_id
+		ORDER BY l.date %s
+		LIMIT $6 OFFSET $7;
+	`, order)
+
+	rows, err := r.db.Query(ctx, listQuery, isu, subjectID, filter.DateFrom, filter.DateTo, filter.GapSeconds, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]visits.LectureAttendance, 0)
+	for rows.Next() {
+		var it visits.LectureAttendance
+		if err := rows.Scan(&it.LectureID, &it.Date, &it.TeacherISU, &it.PresentSeconds); err != nil {
+			return nil, 0, err
+		}
+		items = append(items, it)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
 }

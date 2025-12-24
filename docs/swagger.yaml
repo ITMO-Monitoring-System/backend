@@ -248,6 +248,19 @@ definitions:
           type: string
         type: array
     type: object
+  visits.GetStudentLecturesBySubjectResponse:
+    properties:
+      isu:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/visits.LectureAttendanceItem'
+        type: array
+      meta:
+        $ref: '#/definitions/visits.PageMeta'
+      subject_id:
+        type: integer
+    type: object
   visits.GetVisitedSubjectsResponse:
     properties:
       isu:
@@ -256,6 +269,27 @@ definitions:
         items:
           $ref: '#/definitions/visits.SubjectDTO'
         type: array
+    type: object
+  visits.LectureAttendanceItem:
+    properties:
+      date:
+        description: RFC3339
+        type: string
+      lecture_id:
+        type: integer
+      present_seconds:
+        type: integer
+      teacher_isu:
+        type: string
+    type: object
+  visits.PageMeta:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
     type: object
   visits.SubjectDTO:
     properties:
@@ -1315,6 +1349,67 @@ paths:
       summary: Загрузка фотографий лица студента
       tags:
       - users
+  /api/visits/lectures/{subject_id}:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает лекции по предмету (сортировка по дате) и время присутствия
+        студента на каждой лекции (секунды). ISU берётся из JWT.
+      parameters:
+      - description: ID предмета
+        in: path
+        name: subject_id
+        required: true
+        type: integer
+      - description: Начало периода (RFC3339 или YYYY-MM-DD)
+        in: query
+        name: date_from
+        type: string
+      - description: Конец периода (RFC3339 или YYYY-MM-DD)
+        in: query
+        name: date_to
+        type: string
+      - description: 'Сортировка по дате: asc или desc (по умолчанию desc)'
+        in: query
+        name: order
+        type: string
+      - description: Страница (по умолчанию 1)
+        in: query
+        name: page
+        type: integer
+      - description: Размер страницы (по умолчанию 20)
+        in: query
+        name: page_size
+        type: integer
+      - description: Максимальный разрыв между снапшотами для склейки (сек), по умолчанию
+          120
+        in: query
+        name: gap_seconds
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/visits.GetStudentLecturesBySubjectResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Лекции студента по предмету
+      tags:
+      - visits
   /api/visits/lectures/subjects:
     get:
       consumes:
