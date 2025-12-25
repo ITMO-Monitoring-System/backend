@@ -35,8 +35,8 @@ func (r *lectureGroupRepository) AddGroup(ctx context.Context, lectureID int64, 
 	}()
 
 	query := `
-        INSERT INTO universities_data.lectures_groups (id, lecture_id, group_id)
-        VALUES (nextval('lectures_groups_id_seq'), $1, $2)
+        INSERT INTO universities_data.lectures_groups (lecture_id, group_id)
+        VALUES ($1, $2)
         ON CONFLICT (lecture_id, group_id) DO NOTHING
     `
 

@@ -26,7 +26,6 @@ func NewLectureService(db *pgxpool.Pool, lectures postgres.LectureRepository, le
 
 func (s *LectureService) Create(ctx context.Context, req lectdto.CreateLectureRequest) (lectdto.LectureResponse, error) {
 	l := domain.Lecture{
-		// ID не задаём
 		Date:      req.Date,
 		SubjectID: req.SubjectID,
 		TeacherID: req.TeacherID,
