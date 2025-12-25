@@ -104,6 +104,10 @@ func New(d Dependencies) *mux.Router {
 	visitsGroup.Use(jwtMW)
 	visitsGroup.HandleFunc("/lectures/subjects", d.VisitsHandler.GetVisitedSubjects).Methods(http.MethodGet)
 	visitsGroup.HandleFunc("/lectures/{subject_id}", d.VisitsHandler.GetStudentLecturesBySubject).Methods(http.MethodGet)
+	visitsGroup.HandleFunc("/teacher/{subject_id}/lectures", d.VisitsHandler.GetTeacherLecturesBySubject).Methods(http.MethodGet)
+	visitsGroup.HandleFunc("/teacher/{lecture_id}/groups", d.VisitsHandler.GetLectureGroups).Methods(http.MethodGet)
+	visitsGroup.HandleFunc("/teacher/{lecture_id}/{group_code}/students", d.VisitsHandler.GetLectureGroupStudents).Methods(http.MethodGet)
+	visitsGroup.HandleFunc("/teacher/subjects", d.VisitsHandler.GetTeacherSubjects).Methods(http.MethodGet)
 
 	// cores
 	userGroup := api.PathPrefix("/user").Subrouter()

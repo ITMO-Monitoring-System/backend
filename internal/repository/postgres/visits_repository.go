@@ -213,3 +213,233 @@ func (r *lectureVisitsRepository) ListStudentLecturesBySubject(ctx context.Conte
 
 	return items, total, nil
 }
+
+func (r *lectureVisitsRepository) ListTeacherLecturesBySubject(
+	ctx context.Context,
+	teacherISU string,
+	subjectID int64,
+	filter visits.TeacherLecturesFilter,
+) ([]visits.TeacherLecture, int, error) {
+	order := "DESC"
+	if strings.ToLower(filter.Order) == "asc" {
+		order = "ASC"
+	}
+	limit := filter.PageSize
+	offset := (filter.Page - 1) * filter.PageSize
+
+	totalQuery := `
+		SELECT COUNT(*)
+		FROM universities_data.lectures l
+		WHERE l.teacher_id = $1
+		  AND l.subject_id = $2
+		  AND ($3::timestamptz IS NULL OR l.date >= $3)
+		  AND ($4::timestamptz IS NULL OR l.date <= $4);
+	`
+
+	var total int
+	if err := r.db.QueryRow(ctx, totalQuery, teacherISU, subjectID, filter.DateFrom, filter.DateTo).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	listQuery := fmt.Sprintf(`
+		SELECT l.id, l.date
+		FROM universities_data.lectures l
+		WHERE l.teacher_id = $1
+		  AND l.subject_id = $2
+		  AND ($3::timestamptz IS NULL OR l.date >= $3)
+		  AND ($4::timestamptz IS NULL OR l.date <= $4)
+		ORDER BY l.date %s
+		LIMIT $5 OFFSET $6;
+	`, order)
+
+	rows, err := r.db.Query(ctx, listQuery, teacherISU, subjectID, filter.DateFrom, filter.DateTo, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]visits.TeacherLecture, 0)
+	for rows.Next() {
+		var it visits.TeacherLecture
+		if err := rows.Scan(&it.LectureID, &it.Date); err != nil {
+			return nil, 0, err
+		}
+		items = append(items, it)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
+}
+
+func (r *lectureVisitsRepository) ListLectureGroups(ctx context.Context, teacherISU string, lectureID int64) ([]string, error) {
+	// защита: преподаватель может смотреть только свои лекции
+	check := `
+		SELECT 1
+		FROM universities_data.lectures l
+		WHERE l.id = $1 AND l.teacher_id = $2;
+	`
+	var ok int
+	if err := r.db.QueryRow(ctx, check, lectureID, teacherISU).Scan(&ok); err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.Query(ctx, `
+		SELECT lg.group_id
+		FROM universities_data.lectures_groups lg
+		WHERE lg.lecture_id = $1
+		ORDER BY lg.group_id;
+	`, lectureID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []string
+	for rows.Next() {
+		var g string
+		if err := rows.Scan(&g); err != nil {
+			return nil, err
+		}
+		groups = append(groups, g)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+func (r *lectureVisitsRepository) ListLectureGroupStudents(
+	ctx context.Context,
+	teacherISU string,
+	lectureID int64,
+	groupCode string,
+	page int,
+	pageSize int,
+	gapSeconds int,
+) ([]visits.StudentOnLecture, int, error) {
+	groupCode = strings.TrimSpace(groupCode)
+	limit := pageSize
+	offset := (page - 1) * pageSize
+
+	// защита: lecture принадлежит teacher и group реально привязана к lecture
+	check := `
+		SELECT 1
+		FROM universities_data.lectures l
+		JOIN universities_data.lectures_groups lg ON lg.lecture_id = l.id
+		WHERE l.id = $1 AND l.teacher_id = $2 AND lg.group_id = $3;
+	`
+	var ok int
+	if err := r.db.QueryRow(ctx, check, lectureID, teacherISU, groupCode).Scan(&ok); err != nil {
+		return nil, 0, err
+	}
+
+	totalQuery := `
+		SELECT COUNT(*)
+		FROM universities_data.students_groups sg
+		WHERE sg.group_code = $1;
+	`
+	var total int
+	if err := r.db.QueryRow(ctx, totalQuery, groupCode).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// presence per student for this lecture (gapSeconds controls stitching)
+	q := `
+		WITH group_students AS (
+			SELECT sg.user_id
+			FROM universities_data.students_groups sg
+			WHERE sg.group_code = $1
+		),
+		snaps AS (
+			SELECT
+				lv.user_id,
+				lv.date AS snap_time,
+				LEAD(lv.date) OVER (PARTITION BY lv.user_id ORDER BY lv.date) AS next_time
+			FROM visits.lectures_visiting lv
+			JOIN group_students gs ON gs.user_id = lv.user_id
+			WHERE lv.lecture_id = $2
+		),
+		presence AS (
+			SELECT
+				s.user_id,
+				COALESCE(SUM(
+					CASE
+						WHEN s.next_time IS NOT NULL
+						 AND EXTRACT(EPOCH FROM (s.next_time - s.snap_time)) <= $3
+						THEN EXTRACT(EPOCH FROM (s.next_time - s.snap_time))
+						ELSE 0
+					END
+				), 0)::bigint AS present_seconds
+			FROM snaps s
+			GROUP BY s.user_id
+		)
+		SELECT
+			u.isu,
+			u.first_name,
+			u.last_name,
+			u.patronymic,
+			COALESCE(p.present_seconds, 0)::bigint AS present_seconds
+		FROM universities_data.students_groups sg
+		JOIN cores.users u ON u.isu = sg.user_id
+		LEFT JOIN presence p ON p.user_id = sg.user_id
+		WHERE sg.group_code = $1
+		ORDER BY u.last_name, u.first_name, u.isu
+		LIMIT $4 OFFSET $5;
+	`
+
+	rows, err := r.db.Query(ctx, q, groupCode, lectureID, gapSeconds, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]visits.StudentOnLecture, 0)
+	for rows.Next() {
+		var it visits.StudentOnLecture
+		if err := rows.Scan(&it.ISU, &it.FirstName, &it.LastName, &it.Patronymic, &it.PresentSeconds); err != nil {
+			return nil, 0, err
+		}
+		items = append(items, it)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
+}
+
+func (r *lectureVisitsRepository) ListTeacherSubjects(ctx context.Context, teacherISU string) ([]visits.SubjectDTO, error) {
+	const q = `
+		SELECT DISTINCT
+			s.id,
+			s.name
+		FROM universities_data.lectures l
+		JOIN universities_data.subjects s
+			ON s.id = l.subject_id
+		WHERE l.teacher_id = $1
+		ORDER BY s.name;
+	`
+
+	rows, err := r.db.Query(ctx, q, teacherISU)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]visits.SubjectDTO, 0)
+	for rows.Next() {
+		var item visits.SubjectDTO
+		if err := rows.Scan(&item.ID, &item.Name); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}

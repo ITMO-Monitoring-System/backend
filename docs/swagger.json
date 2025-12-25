@@ -1732,6 +1732,266 @@
                 }
             }
         },
+        "/api/visits/teacher/subjects": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает список предметов, по которым у текущего преподавателя есть лекции. ISU берётся из JWT.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "Предметы преподавателя",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/visits.GetTeacherSubjectsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/visits/teacher/{lecture_id}/groups": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает список групп, привязанных к лекции (без пагинации). Доступ только преподавателю (ISU из JWT) для его лекции.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "Группы на лекции",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID лекции",
+                        "name": "lecture_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/visits.GetLectureGroupsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/visits/teacher/{lecture_id}/{group_code}/students": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает студентов выбранной группы на выбранной лекции и сколько секунд каждый присутствовал. Пагинация есть, фильтров/сортировок нет.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "Студенты группы на лекции и время присутствия",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID лекции",
+                        "name": "lecture_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Код группы",
+                        "name": "group_code",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Страница (по умолчанию 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Размер страницы (по умолчанию 50)",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Максимальный разрыв между снапшотами для склейки (сек), по умолчанию 120",
+                        "name": "gap_seconds",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/visits.GetLectureGroupStudentsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/visits/teacher/{subject_id}/lectures": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает лекции по предмету для текущего преподавателя (ISU из JWT). Период опционально. Сортировка asc/desc. Есть пагинация.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "Лекции преподавателя по предмету",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID предмета",
+                        "name": "subject_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Начало периода (RFC3339 или YYYY-MM-DD)",
+                        "name": "date_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Конец периода (RFC3339 или YYYY-MM-DD)",
+                        "name": "date_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Сортировка по дате: asc или desc (по умолчанию desc)",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Страница (по умолчанию 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Размер страницы (по умолчанию 20)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/visits.GetTeacherLecturesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/ws": {
             "get": {
                 "description": "Establishes a WebSocket connection for real-time lecture data streaming.\n\nConnection flow:\n1. Client opens WebSocket connection to this endpoint.\n2. After connection client sends control messages to manage subscriptions.\n3. Server sends data only for lectures the client is subscribed to.\n\nClient control messages:\n- Subscribe to lecture: action=subscribe, lecture_id=\u003clecture identifier\u003e\n- Unsubscribe from lecture: action=unsubscribe, lecture_id=\u003clecture identifier\u003e\n\nSubscription rules:\n- One client may subscribe to multiple lectures.\n- Unsubscribed lectures will no longer send data.\n- If the client disconnects, all subscriptions are removed automatically.\n\nServer messages:\n- Server sends lecture data as JSON messages.\n- Message payload corresponds to data received from RabbitMQ.\n- Exact message schema depends on the physical model and may be extended in the future.\n\nFuture extensions:\n- Additional message types (errors, control events).\n- Extended payload schemas.",
@@ -2132,6 +2392,40 @@
                 }
             }
         },
+        "visits.GetLectureGroupStudentsResponse": {
+            "type": "object",
+            "properties": {
+                "group_code": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/visits.StudentOnLectureItem"
+                    }
+                },
+                "lecture_id": {
+                    "type": "integer"
+                },
+                "meta": {
+                    "$ref": "#/definitions/visits.PageMeta"
+                }
+            }
+        },
+        "visits.GetLectureGroupsResponse": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/visits.GroupItem"
+                    }
+                },
+                "lecture_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "visits.GetStudentLecturesBySubjectResponse": {
             "type": "object",
             "properties": {
@@ -2152,6 +2446,40 @@
                 }
             }
         },
+        "visits.GetTeacherLecturesResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/visits.TeacherLectureItem"
+                    }
+                },
+                "meta": {
+                    "$ref": "#/definitions/visits.PageMeta"
+                },
+                "subject_id": {
+                    "type": "integer"
+                },
+                "teacher_isu": {
+                    "type": "string"
+                }
+            }
+        },
+        "visits.GetTeacherSubjectsResponse": {
+            "type": "object",
+            "properties": {
+                "subjects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/visits.SubjectDTO"
+                    }
+                },
+                "teacher_isu": {
+                    "type": "string"
+                }
+            }
+        },
         "visits.GetVisitedSubjectsResponse": {
             "type": "object",
             "properties": {
@@ -2163,6 +2491,14 @@
                     "items": {
                         "$ref": "#/definitions/visits.SubjectDTO"
                     }
+                }
+            }
+        },
+        "visits.GroupItem": {
+            "type": "object",
+            "properties": {
+                "group_code": {
+                    "type": "string"
                 }
             }
         },
@@ -2198,6 +2534,26 @@
                 }
             }
         },
+        "visits.StudentOnLectureItem": {
+            "type": "object",
+            "properties": {
+                "first_name": {
+                    "type": "string"
+                },
+                "isu": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "patronymic": {
+                    "type": "string"
+                },
+                "present_seconds": {
+                    "type": "integer"
+                }
+            }
+        },
         "visits.SubjectDTO": {
             "type": "object",
             "properties": {
@@ -2206,6 +2562,18 @@
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "visits.TeacherLectureItem": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "description": "RFC3339",
+                    "type": "string"
+                },
+                "lecture_id": {
+                    "type": "integer"
                 }
             }
         }

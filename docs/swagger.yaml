@@ -248,6 +248,28 @@ definitions:
           type: string
         type: array
     type: object
+  visits.GetLectureGroupStudentsResponse:
+    properties:
+      group_code:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/visits.StudentOnLectureItem'
+        type: array
+      lecture_id:
+        type: integer
+      meta:
+        $ref: '#/definitions/visits.PageMeta'
+    type: object
+  visits.GetLectureGroupsResponse:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/visits.GroupItem'
+        type: array
+      lecture_id:
+        type: integer
+    type: object
   visits.GetStudentLecturesBySubjectResponse:
     properties:
       isu:
@@ -261,6 +283,28 @@ definitions:
       subject_id:
         type: integer
     type: object
+  visits.GetTeacherLecturesResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/visits.TeacherLectureItem'
+        type: array
+      meta:
+        $ref: '#/definitions/visits.PageMeta'
+      subject_id:
+        type: integer
+      teacher_isu:
+        type: string
+    type: object
+  visits.GetTeacherSubjectsResponse:
+    properties:
+      subjects:
+        items:
+          $ref: '#/definitions/visits.SubjectDTO'
+        type: array
+      teacher_isu:
+        type: string
+    type: object
   visits.GetVisitedSubjectsResponse:
     properties:
       isu:
@@ -269,6 +313,11 @@ definitions:
         items:
           $ref: '#/definitions/visits.SubjectDTO'
         type: array
+    type: object
+  visits.GroupItem:
+    properties:
+      group_code:
+        type: string
     type: object
   visits.LectureAttendanceItem:
     properties:
@@ -291,12 +340,33 @@ definitions:
       total:
         type: integer
     type: object
+  visits.StudentOnLectureItem:
+    properties:
+      first_name:
+        type: string
+      isu:
+        type: string
+      last_name:
+        type: string
+      patronymic:
+        type: string
+      present_seconds:
+        type: integer
+    type: object
   visits.SubjectDTO:
     properties:
       id:
         type: integer
       name:
         type: string
+    type: object
+  visits.TeacherLectureItem:
+    properties:
+      date:
+        description: RFC3339
+        type: string
+      lecture_id:
+        type: integer
     type: object
 info:
   contact: {}
@@ -1440,6 +1510,178 @@ paths:
       security:
       - BearerAuth: []
       summary: Получить предметы, по которым студент посещал лекции
+      tags:
+      - visits
+  /api/visits/teacher/{lecture_id}/{group_code}/students:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает студентов выбранной группы на выбранной лекции и сколько
+        секунд каждый присутствовал. Пагинация есть, фильтров/сортировок нет.
+      parameters:
+      - description: ID лекции
+        in: path
+        name: lecture_id
+        required: true
+        type: integer
+      - description: Код группы
+        in: path
+        name: group_code
+        required: true
+        type: string
+      - description: Страница (по умолчанию 1)
+        in: query
+        name: page
+        type: integer
+      - description: Размер страницы (по умолчанию 50)
+        in: query
+        name: page_size
+        type: integer
+      - description: Максимальный разрыв между снапшотами для склейки (сек), по умолчанию
+          120
+        in: query
+        name: gap_seconds
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/visits.GetLectureGroupStudentsResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Студенты группы на лекции и время присутствия
+      tags:
+      - visits
+  /api/visits/teacher/{lecture_id}/groups:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает список групп, привязанных к лекции (без пагинации).
+        Доступ только преподавателю (ISU из JWT) для его лекции.
+      parameters:
+      - description: ID лекции
+        in: path
+        name: lecture_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/visits.GetLectureGroupsResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Группы на лекции
+      tags:
+      - visits
+  /api/visits/teacher/{subject_id}/lectures:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает лекции по предмету для текущего преподавателя (ISU из
+        JWT). Период опционально. Сортировка asc/desc. Есть пагинация.
+      parameters:
+      - description: ID предмета
+        in: path
+        name: subject_id
+        required: true
+        type: integer
+      - description: Начало периода (RFC3339 или YYYY-MM-DD)
+        in: query
+        name: date_from
+        type: string
+      - description: Конец периода (RFC3339 или YYYY-MM-DD)
+        in: query
+        name: date_to
+        type: string
+      - description: 'Сортировка по дате: asc или desc (по умолчанию desc)'
+        in: query
+        name: order
+        type: string
+      - description: Страница (по умолчанию 1)
+        in: query
+        name: page
+        type: integer
+      - description: Размер страницы (по умолчанию 20)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/visits.GetTeacherLecturesResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Лекции преподавателя по предмету
+      tags:
+      - visits
+  /api/visits/teacher/subjects:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает список предметов, по которым у текущего преподавателя
+        есть лекции. ISU берётся из JWT.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/visits.GetTeacherSubjectsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Предметы преподавателя
       tags:
       - visits
   /api/ws:

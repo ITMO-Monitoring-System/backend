@@ -58,3 +58,57 @@ func (s *visitService) GetStudentLecturesBySubject(ctx context.Context, isu stri
 	}
 	return s.repo.ListStudentLecturesBySubject(ctx, isu, subjectID, filter)
 }
+
+func (s *visitService) GetTeacherLecturesBySubject(ctx context.Context, teacherISU string, subjectID int64, filter visits.TeacherLecturesFilter) ([]visits.TeacherLecture, int, error) {
+	teacherISU = strings.TrimSpace(teacherISU)
+	if teacherISU == "" {
+		return nil, 0, fmt.Errorf("teacher isu is empty")
+	}
+	if subjectID <= 0 {
+		return nil, 0, fmt.Errorf("invalid subject_id")
+	}
+	return s.repo.ListTeacherLecturesBySubject(ctx, teacherISU, subjectID, filter)
+}
+
+func (s *visitService) GetLectureGroups(ctx context.Context, teacherISU string, lectureID int64) ([]string, error) {
+	teacherISU = strings.TrimSpace(teacherISU)
+	if teacherISU == "" {
+		return nil, fmt.Errorf("teacher isu is empty")
+	}
+	if lectureID <= 0 {
+		return nil, fmt.Errorf("invalid lecture_id")
+	}
+	return s.repo.ListLectureGroups(ctx, teacherISU, lectureID)
+}
+
+func (s *visitService) GetLectureGroupStudents(ctx context.Context, teacherISU string, lectureID int64, groupCode string, page int, pageSize int, gapSeconds int) ([]visits.StudentOnLecture, int, error) {
+	teacherISU = strings.TrimSpace(teacherISU)
+	groupCode = strings.TrimSpace(groupCode)
+	if teacherISU == "" {
+		return nil, 0, fmt.Errorf("teacher isu is empty")
+	}
+	if lectureID <= 0 {
+		return nil, 0, fmt.Errorf("invalid lecture_id")
+	}
+	if groupCode == "" {
+		return nil, 0, fmt.Errorf("invalid group_code")
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 50
+	}
+	if gapSeconds < 1 {
+		gapSeconds = 120
+	}
+	return s.repo.ListLectureGroupStudents(ctx, teacherISU, lectureID, groupCode, page, pageSize, gapSeconds)
+}
+
+func (s *visitService) GetTeacherSubjects(ctx context.Context, teacherISU string) ([]visits.SubjectDTO, error) {
+	teacherISU = strings.TrimSpace(teacherISU)
+	if teacherISU == "" {
+		return nil, fmt.Errorf("teacher isu is empty")
+	}
+	return s.repo.ListTeacherSubjects(ctx, teacherISU)
+}
