@@ -109,6 +109,11 @@ func (h *VisitsHandler) GetStudentLecturesBySubject(w http.ResponseWriter, r *ht
 		return
 	}
 
+	role, ok := middleware.Role(r.Context())
+	if !ok || role != "student" {
+		response.WriteError(w, http.StatusUnauthorized, "Access denied")
+	}
+
 	vars := mux.Vars(r)
 	subjectStr := strings.TrimSpace(vars["subject_id"])
 	subjectID, err := strconv.ParseInt(subjectStr, 10, 64)
