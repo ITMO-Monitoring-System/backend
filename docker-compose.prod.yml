@@ -35,7 +35,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-http://host.docker.internal:18083/api/embedding}
+      EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-https://projctviscon.vps.webdock.cloud/recognizing/api/embedding}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

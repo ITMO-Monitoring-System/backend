@@ -38,7 +38,7 @@ var (
 	ErrFaceNotDetected             = errors.New("face not detected in photo")
 )
 
-const defaultEmbeddingServiceURL = "http://host.docker.internal:18083/api/embedding"
+const defaultEmbeddingServiceURL = "https://projctviscon.vps.webdock.cloud/recognizing/api/embedding"
 
 func embeddingServiceURL() string {
 	if raw := strings.TrimSpace(os.Getenv("EMBEDDING_SERVICE_URL")); raw != "" {
