@@ -32,6 +32,29 @@ func NewAuthService(userRepo userRepository, jwt *auth.JWTManager) *AuthService 
 	}
 }
 
+func (s *AuthService) GetMe(ctx context.Context, isu string) (*http.MeResponse, error) {
+	user, err := s.repo.GetByISU(ctx, isu)
+	if err != nil {
+		return nil, err
+	}
+
+	// Берём первую роль из списка (или пустую строку).
+	// Конкретная роль текущей сессии хранится в JWT-claims,
+	// но для /me отдаём данные пользователя из БД.
+	role := ""
+	if len(user.Roles) > 0 {
+		role = user.Roles[0]
+	}
+
+	return &http.MeResponse{
+		ISU:        user.ISU,
+		Role:       role,
+		FirstName:  user.FirstName,
+		LastName:   user.LastName,
+		Patronymic: user.Patronymic,
+	}, nil
+}
+
 func (s *AuthService) Login(ctx context.Context, request http.LoginRequest) (*http.LoginResponse, error) {
 	user, err := s.repo.GetByISU(ctx, request.ISU)
 	if err != nil {

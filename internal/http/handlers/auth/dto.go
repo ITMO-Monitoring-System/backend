@@ -9,3 +9,11 @@ type LoginRequest struct {
 type LoginResponse struct {
 	AccessToken string `json:"access_token"`
 }
+
+type MeResponse struct {
+	ISU        string  `json:"isu"`
+	Role       string  `json:"role"`
+	FirstName  string  `json:"first_name"`
+	LastName   string  `json:"last_name"`
+	Patronymic *string `json:"patronymic,omitempty"`
+}

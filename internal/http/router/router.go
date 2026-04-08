@@ -62,8 +62,13 @@ func New(d Dependencies) *mux.Router {
 	authGroup := api.PathPrefix("/auth").Subrouter()
 	authGroup.HandleFunc("/login", d.AuthHandler.Login).Methods(http.MethodPost)
 
-	// lectures
+	authProtected := api.PathPrefix("/auth").Subrouter()
+	authProtected.Use(jwtMW)
+	authProtected.HandleFunc("/me", d.AuthHandler.Me).Methods(http.MethodGet)
+
+	// lectures (protected)
 	lectureGroup := api.PathPrefix("/lecture").Subrouter()
+	lectureGroup.Use(jwtMW)
 	lectureGroup.HandleFunc("/start", d.LectureManager.StartLecture).Methods(http.MethodPost)
 	lectureGroup.HandleFunc("/stop", d.LectureManager.StopLecture).Methods(http.MethodPost)
 
@@ -96,9 +101,6 @@ func New(d Dependencies) *mux.Router {
 	api.HandleFunc("/subjects/{id:[0-9]+}/practices", d.Practice.ListBySubject).Methods("GET")
 	api.HandleFunc("/groups/{code}/practices", d.Practice.ListByGroup).Methods("GET")
 
-	api.HandleFunc("/lecture/start", d.LectureManager.StartLecture).Methods(http.MethodPost)
-	api.HandleFunc("/lecture/stop", d.LectureManager.StopLecture).Methods(http.MethodPost)
-
 	// visits
 	visitsGroup := api.PathPrefix("/visits").Subrouter()
 	visitsGroup.Use(jwtMW)
@@ -115,9 +117,13 @@ func New(d Dependencies) *mux.Router {
 	adminGroup.Use(jwtMW)
 
 	adminGroup.HandleFunc("/create", d.User.AddUser).Methods(http.MethodPost)
-	userGroup.HandleFunc("/upload/faces/{isu}", d.User.UploadFaces).Methods(http.MethodPost)
-	userGroup.HandleFunc("/roles", d.User.GetRoles).Methods(http.MethodGet)
 	adminGroup.HandleFunc("/roles", d.User.AddRole).Methods(http.MethodPost)
+
+	userProtected := userGroup.PathPrefix("").Subrouter()
+	userProtected.Use(jwtMW)
+	userProtected.HandleFunc("/upload/faces/{isu}", d.User.UploadFaces).Methods(http.MethodPost)
+
+	userGroup.HandleFunc("/roles", d.User.GetRoles).Methods(http.MethodGet)
 
 	// services
 	serviceGroup := api.PathPrefix("/service").Subrouter()

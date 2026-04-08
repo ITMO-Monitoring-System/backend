@@ -12,6 +12,8 @@ require (
 	github.com/swaggo/http-swagger v1.3.4
 )
 
+require golang.org/x/mod v0.21.0 // indirect
+
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
@@ -25,9 +27,9 @@ require (
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe // indirect
-	github.com/swaggo/swag v1.8.1 // direct
-	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/net v0.30.0 // indirect
+	github.com/swaggo/swag v1.16.6 // direct
+	golang.org/x/crypto v0.37.0
+	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/sync v0.13.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
 	golang.org/x/tools v0.26.0 // indirect

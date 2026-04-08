@@ -3,12 +3,14 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
 	"net/http"
 )
 
 type authService interface {
 	Login(ctx context.Context, request LoginRequest) (*LoginResponse, error)
+	GetMe(ctx context.Context, isu string) (*MeResponse, error)
 }
 
 type AuthHandler struct {
@@ -45,4 +47,36 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.WriteJSON(w, http.StatusOK, resp)
+}
+
+// Me godoc
+// @Summary      Профиль текущего пользователя
+// @Description  Возвращает данные пользователя по JWT-токену
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} auth.MeResponse
+// @Failure      401 {object} response.ErrorResponse "Не авторизован"
+// @Failure      500 {object} response.ErrorResponse "Внутренняя ошибка"
+// @Router       /api/auth/me [get]
+func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.UserID(r.Context())
+	if !ok || userID == "" {
+		response.WriteError(w, http.StatusUnauthorized, "authorization required")
+		return
+	}
+
+	me, err := h.authService.GetMe(r.Context(), userID)
+	if err != nil {
+		response.WriteError(w, http.StatusInternalServerError, "user not found")
+		return
+	}
+
+	// Используем роль из JWT-claims (текущая сессия), а не из БД
+	role, roleOk := middleware.Role(r.Context())
+	if roleOk && role != "" {
+		me.Role = role
+	}
+
+	response.WriteJSON(w, http.StatusOK, me)
 }
