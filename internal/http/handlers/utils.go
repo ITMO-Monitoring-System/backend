@@ -75,5 +75,18 @@ func WriteServiceError(w http.ResponseWriter, err error) {
 		return
 	}
 
+	// 404 (foreign_key_violation)
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+		msg := "related entity not found"
+		switch pgErr.ConstraintName {
+		case "students_groups_user_id_fkey":
+			msg = "student not found"
+		case "students_groups_group_code_fkey":
+			msg = "group not found"
+		}
+		response.WriteError(w, http.StatusNotFound, msg)
+		return
+	}
+
 	response.WriteError(w, http.StatusInternalServerError, err.Error())
 }

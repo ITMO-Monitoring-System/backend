@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -29,6 +31,20 @@ type UserFaces struct {
 	LeftFaceEmbedding   []float32
 	RightFaceEmbedding  []float32
 	CenterFaceEmbedding []float32
+}
+
+var (
+	ErrEmbeddingServiceUnavailable = errors.New("embedding service unavailable")
+	ErrFaceNotDetected             = errors.New("face not detected in photo")
+)
+
+const defaultEmbeddingServiceURL = "http://host.docker.internal:18083/api/embedding"
+
+func embeddingServiceURL() string {
+	if raw := strings.TrimSpace(os.Getenv("EMBEDDING_SERVICE_URL")); raw != "" {
+		return raw
+	}
+	return defaultEmbeddingServiceURL
 }
 
 func (f *UserFaces) GenerateEmbeddings() error {
@@ -76,7 +92,7 @@ func (f *UserFaces) GenerateEmbeddings() error {
 func (f *UserFaces) requestEmbedding(photo []byte) ([]float32, error) {
 	req, err := http.NewRequest(
 		http.MethodPost,
-		"http://89.111.170.130:8180/api/embedding",
+		embeddingServiceURL(),
 		bytes.NewReader(photo),
 	)
 	if err != nil {
@@ -90,14 +106,17 @@ func (f *UserFaces) requestEmbedding(photo []byte) ([]float32, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", ErrEmbeddingServiceUnavailable, err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("embedding service returned %d", resp.StatusCode)
+		if resp.StatusCode >= http.StatusInternalServerError {
+			return nil, fmt.Errorf("%w: status %d", ErrEmbeddingServiceUnavailable, resp.StatusCode)
+		}
+		return nil, fmt.Errorf("%w: status %d", ErrFaceNotDetected, resp.StatusCode)
 	}
 
 	result := struct {
@@ -111,7 +130,7 @@ func (f *UserFaces) requestEmbedding(photo []byte) ([]float32, error) {
 	}
 
 	if !result.Ok {
-		return nil, errors.New("embedding service returned ok=false")
+		return nil, ErrFaceNotDetected
 	}
 
 	return result.Embedding, nil

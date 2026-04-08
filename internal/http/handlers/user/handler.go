@@ -3,15 +3,17 @@ package user
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
+	"monitoring_backend/internal/domain"
+	httputil "monitoring_backend/internal/http/handlers"
 	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
-
-	"fmt"
 )
 
 type UserService interface {
@@ -67,18 +69,28 @@ func (h *UserHandler) AddUser(w http.ResponseWriter, r *http.Request) {
 
 // UploadFaces godoc
 // @Summary      Загрузка фотографий лица студента
-// @Description  Загружает три фотографии (левая, правая, фронтальная) студента и сохраняет их в сервисе.
+// @Description  Загружает три фотографии (левая, правая, фронтальная) для авторизованного студента.
 // @Tags         users
 // @Accept       multipart/form-data
 // @Produce      json
-// @Param        isu          path      string                 true  "ISU студента"
 // @Param        left_face    formData  file                   true  "Фотография левой стороны лица"
 // @Param        right_face   formData  file                   true  "Фотография правой стороны лица"
 // @Param        center_face  formData  file                   true  "Фотография фронтальной стороны лица"
 // @Success      200          {string}  string                 "ok"
-// @Failure      400          {object}  response.ErrorResponse        "Некорректный ISU или отсутствуют файлы"
+// @Failure      400          {object}  response.ErrorResponse        "Некорректный запрос или отсутствуют файлы"
 // @Failure      500          {object}  response.ErrorResponse        "Ошибка сервиса при добавлении фотографий"
-// @Router       /api/user/upload/faces/{isu} [post]
+// @Security     BearerAuth
+// @Router       /api/user/upload/faces [post]
+func (h *UserHandler) UploadMyFaces(w http.ResponseWriter, r *http.Request) {
+	isu, ok := middleware.UserID(r.Context())
+	if !ok || strings.TrimSpace(isu) == "" {
+		response.WriteError(w, http.StatusUnauthorized, "authorization required")
+		return
+	}
+
+	h.uploadFacesForISU(w, r, isu)
+}
+
 func (h *UserHandler) UploadFaces(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	isu := vars["isu"]
@@ -88,9 +100,40 @@ func (h *UserHandler) UploadFaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "cannot parse multipart form: "+err.Error())
+	if role, ok := middleware.Role(r.Context()); ok && role == "student" {
+		userID, hasUserID := middleware.UserID(r.Context())
+		if !hasUserID || userID == "" {
+			response.WriteError(w, http.StatusUnauthorized, "authorization required")
+			return
+		}
+
+		if strings.TrimSpace(userID) != strings.TrimSpace(isu) {
+			response.WriteError(w, http.StatusForbidden, "student can upload only own photos")
+			return
+		}
+	}
+
+	h.uploadFacesForISU(w, r, isu)
+}
+
+func (h *UserHandler) uploadFacesForISU(w http.ResponseWriter, r *http.Request, isu string) {
+	request, err := parseAddUserFacesRequest(r, isu)
+	if err != nil {
+		response.WriteError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if err := h.userService.AddUserFaces(r.Context(), request); err != nil {
+		writeAddFacesError(w, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, "ok")
+}
+
+func parseAddUserFacesRequest(r *http.Request, isu string) (AddUserFacesRequest, error) {
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		return AddUserFacesRequest{}, fmt.Errorf("cannot parse multipart form: %w", err)
 	}
 
 	photos := [3]string{"left_face", "right_face", "center_face"}
@@ -99,35 +142,38 @@ func (h *UserHandler) UploadFaces(w http.ResponseWriter, r *http.Request) {
 	for _, key := range photos {
 		file, _, err := r.FormFile(key)
 		if err != nil {
-			response.WriteError(w, http.StatusBadRequest, fmt.Sprintf("missing file: %s", key))
-			return
+			return AddUserFacesRequest{}, fmt.Errorf("missing file: %s", key)
 		}
 
 		data, err := io.ReadAll(file)
 		_ = file.Close()
 		if err != nil {
-			response.WriteError(w, http.StatusBadRequest, fmt.Sprintf("cannot read file: %s", key))
-			return
+			return AddUserFacesRequest{}, fmt.Errorf("cannot read file: %s", key)
 		}
 
 		photosBytes[key] = data
 
 	}
 
-	request := AddUserFacesRequest{
+	return AddUserFacesRequest{
 		ISU:             isu,
 		LeftFacePhoto:   photosBytes["left_face"],
 		RightFacePhoto:  photosBytes["right_face"],
 		CenterFacePhoto: photosBytes["center_face"],
-	}
+	}, nil
+}
 
-	err := h.userService.AddUserFaces(r.Context(), request)
-	if err != nil {
-		response.WriteError(w, http.StatusInternalServerError, err.Error())
+func writeAddFacesError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, domain.ErrEmbeddingServiceUnavailable):
+		response.WriteError(w, http.StatusServiceUnavailable, "embedding service unavailable")
 		return
+	case errors.Is(err, domain.ErrFaceNotDetected):
+		response.WriteError(w, http.StatusUnprocessableEntity, "face was not detected in one or more photos")
+		return
+	default:
+		httputil.WriteServiceError(w, err)
 	}
-
-	response.WriteJSON(w, http.StatusOK, "ok")
 }
 
 // AddRole godoc

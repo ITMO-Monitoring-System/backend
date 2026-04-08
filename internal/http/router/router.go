@@ -121,6 +121,7 @@ func New(d Dependencies) *mux.Router {
 
 	userProtected := userGroup.PathPrefix("").Subrouter()
 	userProtected.Use(jwtMW)
+	userProtected.HandleFunc("/upload/faces", d.User.UploadMyFaces).Methods(http.MethodPost)
 	userProtected.HandleFunc("/upload/faces/{isu}", d.User.UploadFaces).Methods(http.MethodPost)
 
 	userGroup.HandleFunc("/roles", d.User.GetRoles).Methods(http.MethodGet)

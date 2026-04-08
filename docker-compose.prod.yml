@@ -34,6 +34,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    environment:
+      EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-http://host.docker.internal:18083/api/embedding}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:${APP_BIND_PORT:-18080}:8080"
     volumes:
