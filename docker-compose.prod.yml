@@ -43,8 +43,10 @@ services:
     volumes:
       - ./config.toml:/app/config.toml:ro
     networks:
-      - default
-      - face_recognizing
+      default:
+        aliases:
+          - backend
+      face_recognizing: {}
 
 volumes:
   pg_data:
