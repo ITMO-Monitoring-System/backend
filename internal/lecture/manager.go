@@ -3,8 +3,10 @@ package lecture
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"monitoring_backend/internal/http/response"
 	"net/http"
+	"strings"
 	"sync"
 
 	"monitoring_backend/internal/rabbit"
@@ -52,6 +54,10 @@ func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, http.StatusBadRequest, "Invalid queue name")
 		return
 	}
+	if strings.TrimSpace(m.amqpURL) == "" {
+		response.WriteError(w, http.StatusInternalServerError, "RabbitMQ amqp_url is not configured")
+		return
+	}
 
 	m.mu.Lock()
 	if m.started[req.LectureID] {
@@ -66,6 +72,7 @@ func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 
 	m.mu.Unlock()
 
+	log.Printf("starting rabbit consumer (lecture_id=%d queue=%s amqp_url=%q)", req.LectureID, req.Queue, m.amqpURL)
 	go rabbit.StartConsumer(ctx, m.amqpURL, req.Queue, req.LectureID, m.hub)
 
 	response.WriteJSON(w, http.StatusOK, "Consumer started")

@@ -16,24 +16,26 @@ import (
 func StartConsumer(ctx context.Context, amqpURL string, queue string, lectureID int64, hub *ws.Hub) {
 	backoff := 1 * time.Second
 	maxBackoff := 20 * time.Second
-	connectCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
 
 	for {
 		select {
-		case <-connectCtx.Done():
+		case <-ctx.Done():
+			log.Printf("rabbit consumer context canceled (lecture_id=%d queue=%s)", lectureID, queue)
 			return
 		default:
 		}
 
+		log.Printf("rabbit consumer connecting (lecture_id=%d queue=%s amqp_url=%q)", lectureID, queue, amqpURL)
 		err := consumeOnce(ctx, amqpURL, queue, lectureID, hub)
 		if err == nil {
 			log.Printf("rabbit consumer stopped (lecture_id=%d queue=%s)", lectureID, queue)
 			return
 		}
+		log.Printf("rabbit consumer error (lecture_id=%d queue=%s): %v", lectureID, queue, err)
 
 		select {
 		case <-ctx.Done():
+			log.Printf("rabbit consumer canceled during backoff (lecture_id=%d queue=%s)", lectureID, queue)
 			return
 		case <-time.After(backoff):
 		}
@@ -75,6 +77,7 @@ func consumeOnce(ctx context.Context, amqpURL string, queue string, lectureID in
 	if err != nil {
 		return err
 	}
+	log.Printf("rabbit consumer started (lecture_id=%d queue=%s)", lectureID, queue)
 
 	// Отслеживаем закрытие соединения/канала
 	conn_closed := make(chan *amqp.Error, 1)
@@ -90,6 +93,7 @@ func consumeOnce(ctx context.Context, amqpURL string, queue string, lectureID in
 			if !ok {
 				return amqp.ErrClosed
 			}
+			log.Printf("rabbit consumer received message (lecture_id=%d queue=%s bytes=%d)", lectureID, queue, len(msg.Body))
 
 			if isLectureEnd(msg.Body) {
 				_ = msg.Ack(false)
