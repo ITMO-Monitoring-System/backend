@@ -18,7 +18,7 @@ sslmode = "disable"
 level = "info"
 
 [rabbit]
-ampq_url = "amqp://user:pass@projctviscon.vps.webdock.cloud:5572/"
+ampq_url = "amqp://user:pass@host.docker.internal:15572/"
 
 [jwt]
 secret = "replace-with-a-long-random-secret"
