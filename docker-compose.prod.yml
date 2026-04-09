@@ -42,6 +42,14 @@ services:
       - "127.0.0.1:${APP_BIND_PORT:-18080}:8080"
     volumes:
       - ./config.toml:/app/config.toml:ro
+    networks:
+      - default
+      - face_recognizing
 
 volumes:
   pg_data:
+
+networks:
+  face_recognizing:
+    external: true
+    name: face-recognizing_default

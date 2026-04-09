@@ -44,6 +44,14 @@ services:
       - ./config.toml:/app/config.toml
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - face_recognizing
 
 volumes:
   pg_data:
+
+networks:
+  face_recognizing:
+    external: true
+    name: face-recognizing_default
