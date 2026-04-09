@@ -6,10 +6,12 @@ import (
 	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
 	"net/http"
+	"strings"
 )
 
 type authService interface {
 	Login(ctx context.Context, request LoginRequest) (*LoginResponse, error)
+	Register(ctx context.Context, request RegisterRequest) error
 	GetMe(ctx context.Context, isu string) (*MeResponse, error)
 }
 
@@ -47,6 +49,38 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.WriteJSON(w, http.StatusOK, resp)
+}
+
+// Register godoc
+// @Summary      Регистрация нового пользователя
+// @Description  Создаёт пользователя с ролью student, хеширует пароль, привязывает к группе
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body auth.RegisterRequest true "Данные для регистрации"
+// @Success      201 {object} map[string]bool
+// @Failure      400 {object} response.ErrorResponse "Некорректные данные"
+// @Failure      409 {object} response.ErrorResponse "Пользователь уже существует"
+// @Failure      500 {object} response.ErrorResponse "Внутренняя ошибка"
+// @Router       /api/auth/register [post]
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	var req RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	err := h.authService.Register(r.Context(), req)
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			response.WriteError(w, http.StatusConflict, "пользователь с таким ISU уже существует")
+			return
+		}
+		response.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.WriteJSON(w, http.StatusCreated, map[string]bool{"success": true})
 }
 
 // Me godoc

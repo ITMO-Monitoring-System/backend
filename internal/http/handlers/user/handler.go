@@ -100,17 +100,17 @@ func (h *UserHandler) UploadFaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if role, ok := middleware.Role(r.Context()); ok && role == "student" {
-		userID, hasUserID := middleware.UserID(r.Context())
-		if !hasUserID || userID == "" {
-			response.WriteError(w, http.StatusUnauthorized, "authorization required")
-			return
-		}
+	role, _ := middleware.Role(r.Context())
+	userID, hasUserID := middleware.UserID(r.Context())
+	if !hasUserID || userID == "" {
+		response.WriteError(w, http.StatusUnauthorized, "authorization required")
+		return
+	}
 
-		if strings.TrimSpace(userID) != strings.TrimSpace(isu) {
-			response.WriteError(w, http.StatusForbidden, "student can upload only own photos")
-			return
-		}
+	// Только админ может загружать фото за другого пользователя
+	if role != "admin" && strings.TrimSpace(userID) != strings.TrimSpace(isu) {
+		response.WriteError(w, http.StatusForbidden, "можно загружать только свои фото")
+		return
 	}
 
 	h.uploadFacesForISU(w, r, isu)

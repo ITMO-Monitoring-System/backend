@@ -61,6 +61,7 @@ func New(d Dependencies) *mux.Router {
 	// auth
 	authGroup := api.PathPrefix("/auth").Subrouter()
 	authGroup.HandleFunc("/login", d.AuthHandler.Login).Methods(http.MethodPost)
+	authGroup.HandleFunc("/register", d.AuthHandler.Register).Methods(http.MethodPost)
 
 	authProtected := api.PathPrefix("/auth").Subrouter()
 	authProtected.Use(jwtMW)

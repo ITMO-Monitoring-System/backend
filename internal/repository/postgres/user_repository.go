@@ -217,6 +217,12 @@ func (u *userRepository) AddRole(ctx context.Context, isu, role string) error {
 	return err
 }
 
+func (u *userRepository) HasFaceImages(ctx context.Context, isu string) (bool, error) {
+	var exists bool
+	err := u.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM cores.face_images WHERE student_id = $1)`, isu).Scan(&exists)
+	return exists, err
+}
+
 func (u *userRepository) GetRoles(ctx context.Context, isu string) ([]string, error) {
 	isu = strings.TrimSpace(isu)
 	if isu == "" {

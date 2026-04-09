@@ -65,7 +65,7 @@ func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App 
 	lecServ := service.NewLectureService(db, lecRepo, lecGroupRepo)
 	pracServ := service.NewPracticeService(db, pracRepo, pracGroupRepo)
 	datasetServ := services.NewDatasetService(datasetRepo)
-	authServ := service.NewAuthService(userRepo, jwtManager)
+	authServ := service.NewAuthService(userRepo, jwtManager, sgRepo)
 
 	// handlers
 	userHandler := user.NewUserHandler(userServ)

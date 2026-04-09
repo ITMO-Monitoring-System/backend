@@ -3,33 +3,103 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"monitoring_backend/internal/auth"
 	"monitoring_backend/internal/domain"
 	http "monitoring_backend/internal/http/handlers/auth"
+	"monitoring_backend/internal/service/common"
 	"strings"
 
 	"slices"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var ErrInvalidCredentials = errors.New("invalid credentials")
+var (
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrUserAlreadyExists  = errors.New("user already exists")
+)
 
 type userRepository interface {
 	GetByISU(ctx context.Context, isu string) (*domain.User, error)
 	GetUserPassword(ctx context.Context, isu string) (string, error)
+	Create(ctx context.Context, user *domain.User) error
+	SetPassword(ctx context.Context, isu, password string) error
+	AddRole(ctx context.Context, isu, role string) error
+	HasFaceImages(ctx context.Context, isu string) (bool, error)
+}
+
+type studentGroupRepository interface {
+	SetUserGroup(ctx context.Context, userID, groupCode string) error
+	GetUserGroup(ctx context.Context, userID string) (domain.StudentGroup, error)
 }
 
 type AuthService struct {
-	repo userRepository
-	jwt  *auth.JWTManager
+	repo    userRepository
+	sgRepo  studentGroupRepository
+	jwt     *auth.JWTManager
 }
 
-func NewAuthService(userRepo userRepository, jwt *auth.JWTManager) *AuthService {
+func NewAuthService(userRepo userRepository, jwt *auth.JWTManager, sgRepo studentGroupRepository) *AuthService {
 	return &AuthService{
-		jwt:  jwt,
-		repo: userRepo,
+		jwt:    jwt,
+		repo:   userRepo,
+		sgRepo: sgRepo,
 	}
+}
+
+func (s *AuthService) Register(ctx context.Context, req http.RegisterRequest) error {
+	isu := strings.TrimSpace(req.ISU)
+	firstName := strings.TrimSpace(req.FirstName)
+	lastName := strings.TrimSpace(req.LastName)
+	password := req.Password
+	groupCode := strings.TrimSpace(req.GroupCode)
+
+	if isu == "" {
+		return fmt.Errorf("ISU обязателен")
+	}
+	if firstName == "" || lastName == "" {
+		return fmt.Errorf("имя и фамилия обязательны")
+	}
+	if len(password) < 6 {
+		return fmt.Errorf("пароль должен быть не менее 6 символов")
+	}
+
+	user := &domain.User{
+		ISU:        isu,
+		FirstName:  firstName,
+		LastName:   lastName,
+		Patronymic: req.Patronymic,
+	}
+
+	err := s.repo.Create(ctx, user)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return ErrUserAlreadyExists
+		}
+		return err
+	}
+
+	hashedPassword, err := common.HashPassword(password)
+	if err != nil {
+		return err
+	}
+
+	if err := s.repo.SetPassword(ctx, isu, hashedPassword); err != nil {
+		return err
+	}
+
+	if err := s.repo.AddRole(ctx, isu, "student"); err != nil {
+		return err
+	}
+
+	if groupCode != "" && s.sgRepo != nil {
+		_ = s.sgRepo.SetUserGroup(ctx, isu, groupCode)
+	}
+
+	return nil
 }
 
 func (s *AuthService) GetMe(ctx context.Context, isu string) (*http.MeResponse, error) {
@@ -38,12 +108,19 @@ func (s *AuthService) GetMe(ctx context.Context, isu string) (*http.MeResponse, 
 		return nil, err
 	}
 
-	// Берём первую роль из списка (или пустую строку).
-	// Конкретная роль текущей сессии хранится в JWT-claims,
-	// но для /me отдаём данные пользователя из БД.
 	role := ""
 	if len(user.Roles) > 0 {
 		role = user.Roles[0]
+	}
+
+	hasPhotos, _ := s.repo.HasFaceImages(ctx, isu)
+
+	groupCode := ""
+	if s.sgRepo != nil {
+		sg, err := s.sgRepo.GetUserGroup(ctx, isu)
+		if err == nil {
+			groupCode = sg.GroupCode
+		}
 	}
 
 	return &http.MeResponse{
@@ -52,6 +129,8 @@ func (s *AuthService) GetMe(ctx context.Context, isu string) (*http.MeResponse, 
 		FirstName:  user.FirstName,
 		LastName:   user.LastName,
 		Patronymic: user.Patronymic,
+		Group:      groupCode,
+		HasPhotos:  hasPhotos,
 	}, nil
 }
 

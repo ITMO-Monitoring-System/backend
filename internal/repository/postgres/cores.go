@@ -11,8 +11,10 @@ type UserRepository interface {
 	Update(ctx context.Context, user domain.User) error
 	Delete(ctx context.Context, isu string) error
 	SetPassword(ctx context.Context, isu, password string) error
+	GetUserPassword(ctx context.Context, isu string) (string, error)
 
 	AddFaceEmbeddings(ctx context.Context, userFaces *domain.UserFaces) error
+	HasFaceImages(ctx context.Context, isu string) (bool, error)
 
 	AddRole(ctx context.Context, isu, role string) error
 	GetRoles(ctx context.Context, isu string) ([]string, error)
