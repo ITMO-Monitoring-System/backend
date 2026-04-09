@@ -129,6 +129,8 @@ func New(d Dependencies) *mux.Router {
 	// services
 	serviceGroup := api.PathPrefix("/service").Subrouter()
 	serviceGroup.HandleFunc("/dataset", d.DataSet.Get).Methods(http.MethodGet)
+	serviceGroup.HandleFunc("/lecture/start", d.LectureManager.StartLecture).Methods(http.MethodPost)
+	serviceGroup.HandleFunc("/lecture/stop", d.LectureManager.StopLecture).Methods(http.MethodPost)
 
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
