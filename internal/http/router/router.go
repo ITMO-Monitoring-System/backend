@@ -74,11 +74,15 @@ func New(d Dependencies) *mux.Router {
 	lectureGroup.HandleFunc("/stop", d.LectureManager.StopLecture).Methods(http.MethodPost)
 
 	api.HandleFunc("/departments", d.Department.List).Methods("GET")
+	api.HandleFunc("/departments", d.Department.Create).Methods("POST")
 	api.HandleFunc("/departments/{id:[0-9]+}", d.Department.GetByID).Methods("GET")
+	api.HandleFunc("/departments/{id:[0-9]+}", d.Department.Delete).Methods("DELETE")
 	api.HandleFunc("/departments/code/{code}", d.Department.GetByCode).Methods("GET")
 
 	api.HandleFunc("/departments/{department_id:[0-9]+}/groups", d.Group.ListByDepartment).Methods("GET")
+	api.HandleFunc("/groups", d.Group.Create).Methods("POST")
 	api.HandleFunc("/groups/{code}", d.Group.GetByCode).Methods("GET")
+	api.HandleFunc("/groups/{code}", d.Group.Delete).Methods("DELETE")
 
 	api.HandleFunc("/students/{isu}/group", d.StudentGroup.SetUserGroup).Methods("PUT")
 	api.HandleFunc("/students/{isu}/group", d.StudentGroup.GetUserGroup).Methods("GET")
@@ -88,6 +92,7 @@ func New(d Dependencies) *mux.Router {
 	api.HandleFunc("/subjects", d.Subject.Create).Methods("POST")
 	api.HandleFunc("/subjects", d.Subject.List).Methods("GET")
 	api.HandleFunc("/subjects/{id:[0-9]+}", d.Subject.GetByID).Methods("GET")
+	api.HandleFunc("/subjects/{id:[0-9]+}", d.Subject.Delete).Methods("DELETE")
 	api.HandleFunc("/subjects/by-name/{name}", d.Subject.GetByName).Methods("GET")
 
 	api.HandleFunc("/lectures", d.Lecture.Create).Methods("POST")
@@ -111,6 +116,12 @@ func New(d Dependencies) *mux.Router {
 	visitsGroup.HandleFunc("/teacher/{lecture_id}/groups", d.VisitsHandler.GetLectureGroups).Methods(http.MethodGet)
 	visitsGroup.HandleFunc("/teacher/{lecture_id}/{group_code}/students", d.VisitsHandler.GetLectureGroupStudents).Methods(http.MethodGet)
 	visitsGroup.HandleFunc("/teacher/subjects", d.VisitsHandler.GetTeacherSubjects).Methods(http.MethodGet)
+
+	// admin: users list + delete
+	usersAdminGroup := api.PathPrefix("/users").Subrouter()
+	usersAdminGroup.Use(jwtMW)
+	usersAdminGroup.HandleFunc("", d.User.ListUsers).Methods(http.MethodGet)
+	usersAdminGroup.HandleFunc("/{isu}", d.User.DeleteUser).Methods(http.MethodDelete)
 
 	// cores
 	userGroup := api.PathPrefix("/user").Subrouter()

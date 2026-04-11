@@ -16,6 +16,7 @@ type SubjectService interface {
 	GetByID(ctx context.Context, req GetSubjectByIDRequest) (SubjectResponse, error)
 	GetByName(ctx context.Context, req GetSubjectByNameRequest) (SubjectResponse, error)
 	List(ctx context.Context, req ListSubjectsRequest) ([]SubjectResponse, error)
+	Delete(ctx context.Context, id int64) error
 }
 
 type SubjectHandler struct {
@@ -140,4 +141,29 @@ func (h *SubjectHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.WriteJSON(w, http.StatusOK, resp)
+}
+
+// DeleteSubject godoc
+// @Summary      Delete subject
+// @Tags         subjects
+// @Param        id  path  int  true  "Subject ID"
+// @Success      204
+// @Failure      400  {object}  response.ErrorResponse
+// @Failure      409  {object}  response.ErrorResponse
+// @Failure      500  {object}  response.ErrorResponse
+// @Router       /api/subjects/{id} [delete]
+func (h *SubjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := httputil.PathInt64(r, "id", vars)
+	if err != nil {
+		response.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.Delete(r.Context(), id); err != nil {
+		httputil.WriteServiceError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

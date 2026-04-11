@@ -50,6 +50,19 @@ func (s *DepartmentService) List(ctx context.Context, req deptdto.ListDepartment
 	return out, nil
 }
 
+func (s *DepartmentService) Create(ctx context.Context, req deptdto.CreateDepartmentRequest) (deptdto.DepartmentResponse, error) {
+	d := domain.Department{Code: req.Code, Name: req.Name, Alias: req.Alias}
+	created, err := s.repo.Create(ctx, d)
+	if err != nil {
+		return deptdto.DepartmentResponse{}, err
+	}
+	return mapDepartment(created), nil
+}
+
+func (s *DepartmentService) Delete(ctx context.Context, id int64) error {
+	return s.repo.Delete(ctx, id)
+}
+
 func mapDepartment(d domain.Department) deptdto.DepartmentResponse {
 	return deptdto.DepartmentResponse{
 		ID:    d.ID,

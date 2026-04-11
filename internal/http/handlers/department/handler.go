@@ -2,6 +2,7 @@ package department
 
 import (
 	"context"
+	"encoding/json"
 	httputil "monitoring_backend/internal/http/handlers"
 	"monitoring_backend/internal/http/response"
 	"net/http"
@@ -13,6 +14,8 @@ type DepartmentService interface {
 	GetByID(ctx context.Context, req GetDepartmentByIDRequest) (DepartmentResponse, error)
 	GetByCode(ctx context.Context, req GetDepartmentByCodeRequest) (DepartmentResponse, error)
 	List(ctx context.Context, req ListDepartmentsRequest) (ListDepartmentsResponse, error)
+	Create(ctx context.Context, req CreateDepartmentRequest) (DepartmentResponse, error)
+	Delete(ctx context.Context, id int64) error
 }
 
 type DepartmentHandler struct {
@@ -107,4 +110,60 @@ func (h *DepartmentHandler) GetByCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.WriteJSON(w, http.StatusOK, resp)
+}
+
+// CreateDepartment godoc
+// @Summary      Create department
+// @Tags         departments
+// @Accept       json
+// @Produce      json
+// @Param        request  body      department.CreateDepartmentRequest  true  "Department payload"
+// @Success      201  {object}  department.DepartmentResponse
+// @Failure      400  {object}  response.ErrorResponse
+// @Failure      409  {object}  response.ErrorResponse
+// @Failure      500  {object}  response.ErrorResponse
+// @Router       /api/departments [post]
+func (h *DepartmentHandler) Create(w http.ResponseWriter, r *http.Request) {
+	var req CreateDepartmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Code == "" || req.Name == "" {
+		response.WriteError(w, http.StatusBadRequest, "code and name are required")
+		return
+	}
+
+	resp, err := h.service.Create(r.Context(), req)
+	if err != nil {
+		httputil.WriteServiceError(w, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusCreated, resp)
+}
+
+// DeleteDepartment godoc
+// @Summary      Delete department
+// @Tags         departments
+// @Param        id  path  int  true  "Department ID"
+// @Success      204
+// @Failure      400  {object}  response.ErrorResponse
+// @Failure      409  {object}  response.ErrorResponse
+// @Failure      500  {object}  response.ErrorResponse
+// @Router       /api/departments/{id} [delete]
+func (h *DepartmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := httputil.PathInt64(r, "id", vars)
+	if err != nil {
+		response.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.Delete(r.Context(), id); err != nil {
+		httputil.WriteServiceError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

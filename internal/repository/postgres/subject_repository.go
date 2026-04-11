@@ -81,3 +81,8 @@ func (r *subjectRepository) List(ctx context.Context, limit, offset int) ([]doma
 
 	return subjects, rows.Err()
 }
+
+func (r *subjectRepository) Delete(ctx context.Context, id int64) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM universities_data.subjects WHERE id = $1`, id)
+	return err
+}

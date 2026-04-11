@@ -99,3 +99,30 @@ func (s *userService) AddUserRole(ctx context.Context, request http.AddUserRoleR
 
 	return nil
 }
+
+func (s *userService) ListUsers(ctx context.Context, limit, offset int, role string) ([]http.UserResponse, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	users, err := s.userRepo.List(ctx, limit, offset, role)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]http.UserResponse, 0, len(users))
+	for _, u := range users {
+		out = append(out, http.UserResponse{
+			ISU:       u.ISU,
+			FirstName: u.FirstName,
+			LastName:  u.LastName,
+		})
+	}
+	return out, nil
+}
+
+func (s *userService) DeleteUser(ctx context.Context, isu string) error {
+	isu = strings.TrimSpace(isu)
+	if isu == "" {
+		return fmt.Errorf("isu is empty")
+	}
+	return s.userRepo.Delete(ctx, isu)
+}

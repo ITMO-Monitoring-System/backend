@@ -11,11 +11,15 @@ type DepartmentRepository interface {
 	GetByID(ctx context.Context, id int64) (domain.Department, error)
 	GetByCode(ctx context.Context, code string) (domain.Department, error)
 	List(ctx context.Context, limit, offset int) (*domain.Departments, error)
+	Create(ctx context.Context, d domain.Department) (domain.Department, error)
+	Delete(ctx context.Context, id int64) error
 }
 
 type GroupRepository interface {
 	GetByCode(ctx context.Context, code string) (domain.Group, error)
 	ListByDepartment(ctx context.Context, departmentID int64) ([]domain.Group, error)
+	Create(ctx context.Context, g domain.Group) (domain.Group, error)
+	Delete(ctx context.Context, code string) error
 }
 
 type StudentGroupRepository interface {
@@ -30,6 +34,7 @@ type SubjectRepository interface {
 	GetByID(ctx context.Context, id int64) (domain.Subject, error)
 	GetByName(ctx context.Context, name string) (domain.Subject, error)
 	List(ctx context.Context, limit, offset int) ([]domain.Subject, error)
+	Delete(ctx context.Context, id int64) error
 }
 
 type LectureRepository interface {

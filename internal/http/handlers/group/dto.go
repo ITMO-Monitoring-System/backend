@@ -12,3 +12,8 @@ type GroupResponse struct {
 	Code         string `json:"code"`
 	DepartmentID int64  `json:"department_id"`
 }
+
+type CreateGroupRequest struct {
+	Code         string `json:"code"`
+	DepartmentID int64  `json:"department_id"`
+}

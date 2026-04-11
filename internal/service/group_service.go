@@ -36,6 +36,19 @@ func (s *GroupService) ListByDepartment(ctx context.Context, req groupdto.ListGr
 	return out, nil
 }
 
+func (s *GroupService) Create(ctx context.Context, req groupdto.CreateGroupRequest) (groupdto.GroupResponse, error) {
+	g := domain.Group{Code: req.Code, DepartmentID: req.DepartmentID}
+	created, err := s.repo.Create(ctx, g)
+	if err != nil {
+		return groupdto.GroupResponse{}, err
+	}
+	return mapGroup(created), nil
+}
+
+func (s *GroupService) Delete(ctx context.Context, code string) error {
+	return s.repo.Delete(ctx, code)
+}
+
 func mapGroup(g domain.Group) groupdto.GroupResponse {
 	return groupdto.GroupResponse{
 		Code:         g.Code,

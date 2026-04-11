@@ -21,6 +21,8 @@ type UserService interface {
 	AddUserFaces(ctx context.Context, request AddUserFacesRequest) error
 	AddUserRole(ctx context.Context, request AddUserRoleRequest) error
 	GetUserRoles(ctx context.Context, isu string) ([]string, error)
+	ListUsers(ctx context.Context, limit, offset int, role string) ([]UserResponse, error)
+	DeleteUser(ctx context.Context, isu string) error
 }
 
 type UserHandler struct {
@@ -250,4 +252,78 @@ func (h *UserHandler) GetRoles(w http.ResponseWriter, r *http.Request) {
 		Roles: roles,
 	}
 	response.WriteJSON(w, http.StatusOK, resp)
+}
+
+// ListUsers godoc
+// @Summary      Список пользователей
+// @Description  Возвращает список пользователей с пагинацией. Опциональный фильтр по роли.
+// @Tags         users
+// @Produce      json
+// @Param Authorization header string true "Bearer <JWT>"
+// @Param        limit  query int    false "Кол-во записей (default 50)"
+// @Param        offset query int    false "Смещение (default 0)"
+// @Param        role   query string false "Фильтр по роли (admin, teacher, student)"
+// @Success      200 {object} user.ListUsersResponse
+// @Failure      403 {object} response.ErrorResponse "Нет прав"
+// @Failure      500 {object} response.ErrorResponse "Внутренняя ошибка"
+// @Security     BearerAuth
+// @Router       /api/users [get]
+func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	role, ok := middleware.Role(r.Context())
+	if !ok || role != "admin" {
+		response.WriteError(w, http.StatusForbidden, "admin only")
+		return
+	}
+
+	limit, err := httputil.QueryInt(r, "limit", 50)
+	if err != nil {
+		limit = 50
+	}
+	offset, err := httputil.QueryInt(r, "offset", 0)
+	if err != nil {
+		offset = 0
+	}
+	filterRole := strings.TrimSpace(r.URL.Query().Get("role"))
+
+	users, err := h.userService.ListUsers(r.Context(), limit, offset, filterRole)
+	if err != nil {
+		response.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, ListUsersResponse{Users: users})
+}
+
+// DeleteUser godoc
+// @Summary      Удалить пользователя
+// @Description  Удаляет пользователя по ISU.
+// @Tags         users
+// @Produce      json
+// @Param Authorization header string true "Bearer <JWT>"
+// @Param        isu path string true "ISU пользователя"
+// @Success      200 {string} string "ok"
+// @Failure      400 {object} response.ErrorResponse "ISU не указан"
+// @Failure      403 {object} response.ErrorResponse "Нет прав"
+// @Failure      500 {object} response.ErrorResponse "Внутренняя ошибка"
+// @Security     BearerAuth
+// @Router       /api/users/{isu} [delete]
+func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	role, ok := middleware.Role(r.Context())
+	if !ok || role != "admin" {
+		response.WriteError(w, http.StatusForbidden, "admin only")
+		return
+	}
+
+	isu := strings.TrimSpace(mux.Vars(r)["isu"])
+	if isu == "" {
+		response.WriteError(w, http.StatusBadRequest, "isu is required")
+		return
+	}
+
+	if err := h.userService.DeleteUser(r.Context(), isu); err != nil {
+		response.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, "ok")
 }

@@ -24,3 +24,9 @@ type ListDepartmentsResponse struct {
 	Departments []DepartmentResponse `json:"departments"`
 	HasMore     bool                 `json:"has_more"`
 }
+
+type CreateDepartmentRequest struct {
+	Code  string  `json:"code"`
+	Name  string  `json:"name"`
+	Alias *string `json:"alias,omitempty"`
+}

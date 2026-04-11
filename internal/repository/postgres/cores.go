@@ -8,6 +8,7 @@ import (
 type UserRepository interface {
 	Create(ctx context.Context, user *domain.User) error
 	GetByISU(ctx context.Context, isu string) (*domain.User, error)
+	List(ctx context.Context, limit, offset int, role string) ([]domain.User, error)
 	Update(ctx context.Context, user domain.User) error
 	Delete(ctx context.Context, isu string) error
 	SetPassword(ctx context.Context, isu, password string) error

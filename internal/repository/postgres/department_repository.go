@@ -111,3 +111,21 @@ func (r *departmentRepository) List(ctx context.Context, limit, offset int) (*do
 
 	return &deps, nil
 }
+
+func (r *departmentRepository) Create(ctx context.Context, d domain.Department) (domain.Department, error) {
+	query := `
+		INSERT INTO universities_data.departments (code, name, alias)
+		VALUES ($1, $2, $3)
+		RETURNING id, code, name, alias
+	`
+	var dept domain.Department
+	err := r.db.QueryRow(ctx, query, d.Code, d.Name, d.Alias).Scan(
+		&dept.ID, &dept.Code, &dept.Name, &dept.Alias,
+	)
+	return dept, err
+}
+
+func (r *departmentRepository) Delete(ctx context.Context, id int64) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM universities_data.departments WHERE id = $1`, id)
+	return err
+}

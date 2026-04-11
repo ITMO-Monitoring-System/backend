@@ -24,3 +24,19 @@ type GetUserRolesResponse struct {
 	ISU   string   `json:"isu"`
 	Roles []string `json:"roles"`
 }
+
+type UserResponse struct {
+	ISU       string `json:"isu"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
+type ListUsersRequest struct {
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+	Role   string `json:"role"`
+}
+
+type ListUsersResponse struct {
+	Users []UserResponse `json:"users"`
+}

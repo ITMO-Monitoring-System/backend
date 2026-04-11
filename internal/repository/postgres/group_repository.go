@@ -70,3 +70,21 @@ func (r *groupRepository) ListByDepartment(ctx context.Context, departmentID int
 
 	return groups, nil
 }
+
+func (r *groupRepository) Create(ctx context.Context, g domain.Group) (domain.Group, error) {
+	query := `
+		INSERT INTO universities_data.groups (code, department_id)
+		VALUES ($1, $2)
+		RETURNING code, department_id
+	`
+	var group domain.Group
+	err := r.db.QueryRow(ctx, query, g.Code, g.DepartmentID).Scan(
+		&group.Code, &group.DepartmentID,
+	)
+	return group, err
+}
+
+func (r *groupRepository) Delete(ctx context.Context, code string) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM universities_data.groups WHERE code = $1`, code)
+	return err
+}

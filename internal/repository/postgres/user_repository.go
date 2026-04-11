@@ -157,8 +157,49 @@ func (u *userRepository) Update(ctx context.Context, user domain.User) error {
 }
 
 func (u *userRepository) Delete(ctx context.Context, isu string) error {
-	//TODO implement me
-	panic("implement me")
+	_, err := u.db.Exec(ctx, `DELETE FROM cores.users WHERE isu = $1`, isu)
+	return err
+}
+
+func (u *userRepository) List(ctx context.Context, limit, offset int, role string) ([]domain.User, error) {
+	var query string
+	var args []any
+
+	if role != "" {
+		query = `
+			SELECT DISTINCT u.isu, u.first_name, u.last_name, u.patronymic
+			FROM cores.users u
+			JOIN cores.users_roles r ON r.isu = u.isu
+			WHERE r.role = $1
+			ORDER BY u.isu
+			LIMIT $2 OFFSET $3
+		`
+		args = []any{role, limit, offset}
+	} else {
+		query = `
+			SELECT isu, first_name, last_name, patronymic
+			FROM cores.users
+			ORDER BY isu
+			LIMIT $1 OFFSET $2
+		`
+		args = []any{limit, offset}
+	}
+
+	rows, err := u.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []domain.User
+	for rows.Next() {
+		var usr domain.User
+		if err := rows.Scan(&usr.ISU, &usr.FirstName, &usr.LastName, &usr.Patronymic); err != nil {
+			return nil, err
+		}
+		users = append(users, usr)
+	}
+	return users, rows.Err()
 }
 
 func (u *userRepository) SetPassword(ctx context.Context, isu, password string) error {
