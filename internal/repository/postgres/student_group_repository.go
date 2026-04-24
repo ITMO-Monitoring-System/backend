@@ -50,10 +50,11 @@ func (r *studentGroupRepository) RemoveUserGroup(ctx context.Context, userID str
 
 func (r *studentGroupRepository) ListUsersByGroup(ctx context.Context, groupCode string) ([]string, error) {
 	query := `
-        SELECT user_id
-        FROM universities_data.students_groups
-        WHERE group_code = $1
-        ORDER BY user_id
+        SELECT sg.user_id
+        FROM universities_data.students_groups sg
+        JOIN cores.users u ON u.isu = sg.user_id
+        WHERE sg.group_code = $1
+        ORDER BY u.last_name NULLS LAST, u.first_name NULLS LAST, u.patronymic NULLS LAST, sg.user_id
     `
 
 	rows, err := r.db.Query(ctx, query, groupCode)

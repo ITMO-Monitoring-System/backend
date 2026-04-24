@@ -109,10 +109,10 @@ func (r *lectureGroupRepository) ListLecturesByGroup(ctx context.Context, groupC
         SELECT l.id, l.date, l.subject_id, l.teacher_id
         FROM universities_data.lectures l
         INNER JOIN universities_data.lectures_groups lg ON l.id = lg.lecture_id
-        WHERE lg.group_id = $1 
-          AND l.date >= $2 
+        WHERE lg.group_id = $1
+          AND l.date >= $2
           AND l.date <= $3
-        ORDER BY l.date
+        ORDER BY l.date DESC, l.id DESC
     `
 
 	rows, err := r.db.Query(ctx, query, groupCode, from, to)

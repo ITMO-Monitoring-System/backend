@@ -171,7 +171,7 @@ func (u *userRepository) List(ctx context.Context, limit, offset int, role strin
 			FROM cores.users u
 			JOIN cores.users_roles r ON r.isu = u.isu
 			WHERE r.role = $1
-			ORDER BY u.isu
+			ORDER BY u.last_name NULLS LAST, u.first_name NULLS LAST, u.patronymic NULLS LAST, u.isu
 			LIMIT $2 OFFSET $3
 		`
 		args = []any{role, limit, offset}
@@ -179,7 +179,7 @@ func (u *userRepository) List(ctx context.Context, limit, offset int, role strin
 		query = `
 			SELECT isu, first_name, last_name, patronymic
 			FROM cores.users
-			ORDER BY isu
+			ORDER BY last_name NULLS LAST, first_name NULLS LAST, patronymic NULLS LAST, isu
 			LIMIT $1 OFFSET $2
 		`
 		args = []any{limit, offset}

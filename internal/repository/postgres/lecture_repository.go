@@ -52,7 +52,7 @@ func (r *lectureRepository) ListByTeacher(ctx context.Context, teacherID string,
         SELECT id, date, subject_id, teacher_id
         FROM universities_data.lectures
         WHERE teacher_id = $1
-        ORDER BY date
+        ORDER BY date DESC, id DESC
     `
 
 	rows, err := r.db.Query(ctx, query, teacherID)
@@ -77,10 +77,10 @@ func (r *lectureRepository) ListBySubject(ctx context.Context, subjectID int64, 
 	query := `
         SELECT id, date, subject_id, teacher_id
         FROM universities_data.lectures
-        WHERE subject_id = $1 
-          AND date >= $2 
+        WHERE subject_id = $1
+          AND date >= $2
           AND date <= $3
-        ORDER BY date
+        ORDER BY date DESC, id DESC
     `
 
 	rows, err := r.db.Query(ctx, query, subjectID, from, to)

@@ -189,9 +189,9 @@ func (r *lectureVisitsRepository) ListStudentLecturesBySubject(ctx context.Conte
 		  AND ($3::timestamptz IS NULL OR l.date >= $3)
 		  AND ($4::timestamptz IS NULL OR l.date <= $4)
 		GROUP BY l.id, l.date, l.teacher_id
-		ORDER BY l.date %s
+		ORDER BY l.date %s, l.id %s
 		LIMIT $6 OFFSET $7;
-	`, order)
+	`, order, order)
 
 	rows, err := r.db.Query(ctx, listQuery, isu, subjectID, filter.DateFrom, filter.DateTo, filter.GapSeconds, limit, offset)
 	if err != nil {
@@ -248,9 +248,9 @@ func (r *lectureVisitsRepository) ListTeacherLecturesBySubject(
 		  AND l.subject_id = $2
 		  AND ($3::timestamptz IS NULL OR l.date >= $3)
 		  AND ($4::timestamptz IS NULL OR l.date <= $4)
-		ORDER BY l.date %s
+		ORDER BY l.date %s, l.id %s
 		LIMIT $5 OFFSET $6;
-	`, order)
+	`, order, order)
 
 	rows, err := r.db.Query(ctx, listQuery, teacherISU, subjectID, filter.DateFrom, filter.DateTo, limit, offset)
 	if err != nil {
@@ -385,7 +385,7 @@ func (r *lectureVisitsRepository) ListLectureGroupStudents(
 		JOIN cores.users u ON u.isu = sg.user_id
 		LEFT JOIN presence p ON p.user_id = sg.user_id
 		WHERE sg.group_code = $1
-		ORDER BY u.last_name, u.first_name, u.isu
+		ORDER BY u.last_name NULLS LAST, u.first_name NULLS LAST, u.patronymic NULLS LAST, u.isu
 		LIMIT $4 OFFSET $5;
 	`
 
