@@ -26,9 +26,10 @@ type GetUserRolesResponse struct {
 }
 
 type UserResponse struct {
-	ISU       string `json:"isu"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
+	ISU       string   `json:"isu"`
+	FirstName string   `json:"first_name"`
+	LastName  string   `json:"last_name"`
+	Roles     []string `json:"roles"`
 }
 
 type ListUsersRequest struct {

@@ -167,19 +167,24 @@ func (u *userRepository) List(ctx context.Context, limit, offset int, role strin
 
 	if role != "" {
 		query = `
-			SELECT DISTINCT u.isu, u.first_name, u.last_name, u.patronymic
+			SELECT u.isu, u.first_name, u.last_name, u.patronymic,
+			       COALESCE(array_agg(r2.role) FILTER (WHERE r2.role IS NOT NULL), ARRAY[]::text[]) AS roles
 			FROM cores.users u
-			JOIN cores.users_roles r ON r.isu = u.isu
-			WHERE r.role = $1
+			JOIN cores.users_roles r ON r.isu = u.isu AND r.role = $1
+			LEFT JOIN cores.users_roles r2 ON r2.isu = u.isu
+			GROUP BY u.isu, u.first_name, u.last_name, u.patronymic
 			ORDER BY u.last_name NULLS LAST, u.first_name NULLS LAST, u.patronymic NULLS LAST, u.isu
 			LIMIT $2 OFFSET $3
 		`
 		args = []any{role, limit, offset}
 	} else {
 		query = `
-			SELECT isu, first_name, last_name, patronymic
-			FROM cores.users
-			ORDER BY last_name NULLS LAST, first_name NULLS LAST, patronymic NULLS LAST, isu
+			SELECT u.isu, u.first_name, u.last_name, u.patronymic,
+			       COALESCE(array_agg(r.role) FILTER (WHERE r.role IS NOT NULL), ARRAY[]::text[]) AS roles
+			FROM cores.users u
+			LEFT JOIN cores.users_roles r ON r.isu = u.isu
+			GROUP BY u.isu, u.first_name, u.last_name, u.patronymic
+			ORDER BY u.last_name NULLS LAST, u.first_name NULLS LAST, u.patronymic NULLS LAST, u.isu
 			LIMIT $1 OFFSET $2
 		`
 		args = []any{limit, offset}
@@ -194,7 +199,7 @@ func (u *userRepository) List(ctx context.Context, limit, offset int, role strin
 	var users []domain.User
 	for rows.Next() {
 		var usr domain.User
-		if err := rows.Scan(&usr.ISU, &usr.FirstName, &usr.LastName, &usr.Patronymic); err != nil {
+		if err := rows.Scan(&usr.ISU, &usr.FirstName, &usr.LastName, &usr.Patronymic, &usr.Roles); err != nil {
 			return nil, err
 		}
 		users = append(users, usr)

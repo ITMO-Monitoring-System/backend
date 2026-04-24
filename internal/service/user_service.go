@@ -110,10 +110,15 @@ func (s *userService) ListUsers(ctx context.Context, limit, offset int, role str
 	}
 	out := make([]http.UserResponse, 0, len(users))
 	for _, u := range users {
+		roles := u.Roles
+		if roles == nil {
+			roles = []string{}
+		}
 		out = append(out, http.UserResponse{
 			ISU:       u.ISU,
 			FirstName: u.FirstName,
 			LastName:  u.LastName,
+			Roles:     roles,
 		})
 	}
 	return out, nil
