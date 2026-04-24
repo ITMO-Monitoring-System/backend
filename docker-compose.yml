@@ -45,8 +45,11 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - default
-      - face_recognizing
+      default:
+        driver: bridge
+      face_recognizing:
+        external: true
+        name: face-recognizing_default
 
 volumes:
   pg_data:
