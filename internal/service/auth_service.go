@@ -35,21 +35,27 @@ type studentGroupRepository interface {
 	GetUserGroup(ctx context.Context, userID string) (domain.StudentGroup, error)
 }
 
-type AuthService struct {
-	repo    userRepository
-	sgRepo  studentGroupRepository
-	jwt     *auth.JWTManager
+type consentRecorder interface {
+	Record(ctx context.Context, c domain.Consent) error
 }
 
-func NewAuthService(userRepo userRepository, jwt *auth.JWTManager, sgRepo studentGroupRepository) *AuthService {
+type AuthService struct {
+	repo        userRepository
+	sgRepo      studentGroupRepository
+	consentRepo consentRecorder
+	jwt         *auth.JWTManager
+}
+
+func NewAuthService(userRepo userRepository, jwt *auth.JWTManager, sgRepo studentGroupRepository, consentRepo consentRecorder) *AuthService {
 	return &AuthService{
-		jwt:    jwt,
-		repo:   userRepo,
-		sgRepo: sgRepo,
+		jwt:         jwt,
+		repo:        userRepo,
+		sgRepo:      sgRepo,
+		consentRepo: consentRepo,
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, req http.RegisterRequest) error {
+func (s *AuthService) Register(ctx context.Context, req http.RegisterRequest, ip, userAgent string) error {
 	isu := strings.TrimSpace(req.ISU)
 	firstName := strings.TrimSpace(req.FirstName)
 	lastName := strings.TrimSpace(req.LastName)
@@ -64,6 +70,9 @@ func (s *AuthService) Register(ctx context.Context, req http.RegisterRequest) er
 	}
 	if len(password) < 6 {
 		return fmt.Errorf("пароль должен быть не менее 6 символов")
+	}
+	if !req.PDConsentAccepted {
+		return fmt.Errorf("необходимо согласие на обработку персональных данных")
 	}
 
 	user := &domain.User{
@@ -92,6 +101,16 @@ func (s *AuthService) Register(ctx context.Context, req http.RegisterRequest) er
 	}
 
 	if err := s.repo.AddRole(ctx, isu, "student"); err != nil {
+		return err
+	}
+
+	if err := s.consentRepo.Record(ctx, domain.Consent{
+		ISU:        isu,
+		Type:       domain.ConsentPersonalData,
+		DocVersion: domain.PersonalDataConsentVersion,
+		IPAddress:  ip,
+		UserAgent:  userAgent,
+	}); err != nil {
 		return err
 	}
 

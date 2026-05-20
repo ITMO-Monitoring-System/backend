@@ -269,6 +269,11 @@ func (u *userRepository) HasFaceImages(ctx context.Context, isu string) (bool, e
 	return exists, err
 }
 
+func (u *userRepository) DeleteFaceImages(ctx context.Context, isu string) error {
+	_, err := u.db.Exec(ctx, `DELETE FROM cores.face_images WHERE student_id = $1`, isu)
+	return err
+}
+
 func (u *userRepository) GetRoles(ctx context.Context, isu string) ([]string, error) {
 	isu = strings.TrimSpace(isu)
 	if isu == "" {

@@ -12,11 +12,12 @@ import (
 )
 
 type userService struct {
-	userRepo postgres.UserRepository
+	userRepo    postgres.UserRepository
+	consentRepo postgres.ConsentRepository
 }
 
-func NewUserService(userRepo postgres.UserRepository) *userService {
-	return &userService{userRepo: userRepo}
+func NewUserService(userRepo postgres.UserRepository, consentRepo postgres.ConsentRepository) *userService {
+	return &userService{userRepo: userRepo, consentRepo: consentRepo}
 }
 
 func (s *userService) AddUser(ctx context.Context, request http.AddUserRequest) error {
@@ -46,6 +47,14 @@ func (s *userService) AddUser(ctx context.Context, request http.AddUserRequest) 
 }
 
 func (s *userService) AddUserFaces(ctx context.Context, request http.AddUserFacesRequest) error {
+	hasConsent, err := s.consentRepo.HasActive(ctx, request.ISU, domain.ConsentBiometric)
+	if err != nil {
+		return err
+	}
+	if !hasConsent {
+		return domain.ErrBiometricConsentRequired
+	}
+
 	user := domain.UserFaces{
 		User: domain.User{
 			ISU: request.ISU,
@@ -55,7 +64,7 @@ func (s *userService) AddUserFaces(ctx context.Context, request http.AddUserFace
 		CenterFace: request.CenterFacePhoto,
 	}
 
-	err := user.GenerateEmbeddings()
+	err = user.GenerateEmbeddings()
 	if err != nil {
 		return err
 	}

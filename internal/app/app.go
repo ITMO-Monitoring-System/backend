@@ -7,6 +7,7 @@ import (
 	jwt "monitoring_backend/internal/auth"
 	"monitoring_backend/internal/config"
 	"monitoring_backend/internal/http/handlers/auth"
+	"monitoring_backend/internal/http/handlers/consent"
 	"monitoring_backend/internal/http/handlers/service/dataset"
 	"monitoring_backend/internal/http/handlers/visits"
 	"monitoring_backend/internal/http/middleware"
@@ -54,10 +55,12 @@ func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App 
 	pracGroupRepo := postgres.NewPracticeGroupRepository(db)
 	datasetRepo := postgres.NewDatasetRepository(db)
 	lectureVisitsRepo := postgres.NewLectureVisitsRepository(db)
+	consentRepo := postgres.NewConsentRepository(db)
 
 	// services
 	visitsServ := service.NewVisitService(lectureVisitsRepo)
-	userServ := service.NewUserService(userRepo)
+	userServ := service.NewUserService(userRepo, consentRepo)
+	consentServ := service.NewConsentService(consentRepo, userRepo)
 	deptServ := service.NewDepartmentService(deptRepo)
 	groupServ := service.NewGroupService(groupRepo)
 	sgServ := service.NewStudentGroupService(sgRepo)
@@ -65,10 +68,11 @@ func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App 
 	lecServ := service.NewLectureService(db, lecRepo, lecGroupRepo)
 	pracServ := service.NewPracticeService(db, pracRepo, pracGroupRepo)
 	datasetServ := services.NewDatasetService(datasetRepo)
-	authServ := service.NewAuthService(userRepo, jwtManager, sgRepo)
+	authServ := service.NewAuthService(userRepo, jwtManager, sgRepo, consentRepo)
 
 	// handlers
 	userHandler := user.NewUserHandler(userServ)
+	consentHandler := consent.NewConsentHandler(consentServ)
 	deptHandler := department.NewDepartmentHandler(deptServ)
 	groupHandler := group.NewGroupHandler(groupServ)
 	sgHandler := student_group.NewStudentGroupHandler(sgServ)
@@ -92,6 +96,7 @@ func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App 
 		Lecture:        lecHandler,
 		Practice:       pracHandler,
 		User:           userHandler,
+		Consent:        consentHandler,
 		WsHub:          wsHub,
 		LectureManager: lectureManager,
 		DataSet:        datasetHandler,

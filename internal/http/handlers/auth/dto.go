@@ -11,12 +11,13 @@ type LoginResponse struct {
 }
 
 type RegisterRequest struct {
-	ISU        string  `json:"isu"`
-	FirstName  string  `json:"first_name"`
-	LastName   string  `json:"last_name"`
-	Patronymic *string `json:"patronymic,omitempty"`
-	Password   string  `json:"password"`
-	GroupCode  string  `json:"group_code,omitempty"`
+	ISU               string  `json:"isu"`
+	FirstName         string  `json:"first_name"`
+	LastName          string  `json:"last_name"`
+	Patronymic        *string `json:"patronymic,omitempty"`
+	Password          string  `json:"password"`
+	GroupCode         string  `json:"group_code,omitempty"`
+	PDConsentAccepted bool    `json:"pd_consent_accepted"`
 }
 
 type MeResponse struct {

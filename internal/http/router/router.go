@@ -4,6 +4,7 @@ import (
 	auth2 "monitoring_backend/internal/auth"
 	"monitoring_backend/internal/http/handlers"
 	"monitoring_backend/internal/http/handlers/auth"
+	"monitoring_backend/internal/http/handlers/consent"
 	"monitoring_backend/internal/http/handlers/department"
 	"monitoring_backend/internal/http/handlers/group"
 	lecture2 "monitoring_backend/internal/http/handlers/lecture"
@@ -35,6 +36,7 @@ type Dependencies struct {
 	Lecture       *lecture2.LectureHandler
 	Practice      *practice.PracticeHandler
 	User          *user.UserHandler
+	Consent       *consent.ConsentHandler
 	VisitsHandler *visits.VisitsHandler
 
 	DataSet *dataset.DatasetHandler
@@ -135,6 +137,13 @@ func New(d Dependencies) *mux.Router {
 	userProtected.Use(jwtMW)
 	userProtected.HandleFunc("/upload/faces", d.User.UploadMyFaces).Methods(http.MethodPost)
 	userProtected.HandleFunc("/upload/faces/{isu}", d.User.UploadFaces).Methods(http.MethodPost)
+
+	// consents (protected)
+	consentGroup := userGroup.PathPrefix("/consents").Subrouter()
+	consentGroup.Use(jwtMW)
+	consentGroup.HandleFunc("", d.Consent.List).Methods(http.MethodGet)
+	consentGroup.HandleFunc("/biometric", d.Consent.GiveBiometric).Methods(http.MethodPost)
+	consentGroup.HandleFunc("/biometric", d.Consent.RevokeBiometric).Methods(http.MethodDelete)
 
 	userGroup.HandleFunc("/roles", d.User.GetRoles).Methods(http.MethodGet)
 

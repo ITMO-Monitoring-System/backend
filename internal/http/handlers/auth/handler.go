@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	httputil "monitoring_backend/internal/http/handlers"
 	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
 	"net/http"
@@ -11,7 +12,7 @@ import (
 
 type authService interface {
 	Login(ctx context.Context, request LoginRequest) (*LoginResponse, error)
-	Register(ctx context.Context, request RegisterRequest) error
+	Register(ctx context.Context, request RegisterRequest, ip, userAgent string) error
 	GetMe(ctx context.Context, isu string) (*MeResponse, error)
 }
 
@@ -70,7 +71,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.authService.Register(r.Context(), req)
+	err := h.authService.Register(r.Context(), req, httputil.ClientIP(r), r.UserAgent())
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			response.WriteError(w, http.StatusConflict, "пользователь с таким ISU уже существует")

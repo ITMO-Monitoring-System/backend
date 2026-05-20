@@ -5,13 +5,31 @@ import (
 	"fmt"
 	"monitoring_backend/internal/domain"
 	"monitoring_backend/internal/http/response"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
+
+// ClientIP извлекает IP-адрес клиента из запроса. Учитывает заголовок
+// X-Forwarded-For (актуально за reverse-proxy / nginx).
+func ClientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if i := strings.IndexByte(xff, ','); i >= 0 {
+			return strings.TrimSpace(xff[:i])
+		}
+		return strings.TrimSpace(xff)
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
 
 func PathInt64(r *http.Request, key string, vars map[string]string) (int64, error) {
 	raw, ok := vars[key]

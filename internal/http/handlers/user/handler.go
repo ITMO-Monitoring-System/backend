@@ -167,6 +167,9 @@ func parseAddUserFacesRequest(r *http.Request, isu string) (AddUserFacesRequest,
 
 func writeAddFacesError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, domain.ErrBiometricConsentRequired):
+		response.WriteError(w, http.StatusForbidden, "нет действующего согласия на обработку биометрических персональных данных")
+		return
 	case errors.Is(err, domain.ErrEmbeddingServiceUnavailable):
 		response.WriteError(w, http.StatusServiceUnavailable, "embedding service unavailable")
 		return

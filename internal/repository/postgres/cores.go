@@ -16,9 +16,17 @@ type UserRepository interface {
 
 	AddFaceEmbeddings(ctx context.Context, userFaces *domain.UserFaces) error
 	HasFaceImages(ctx context.Context, isu string) (bool, error)
+	DeleteFaceImages(ctx context.Context, isu string) error
 
 	AddRole(ctx context.Context, isu, role string) error
 	GetRoles(ctx context.Context, isu string) ([]string, error)
+}
+
+type ConsentRepository interface {
+	Record(ctx context.Context, c domain.Consent) error
+	HasActive(ctx context.Context, isu, consentType string) (bool, error)
+	Revoke(ctx context.Context, isu, consentType string) error
+	ListByISU(ctx context.Context, isu string) ([]domain.Consent, error)
 }
 
 // type FaceImagesRepository interface {
