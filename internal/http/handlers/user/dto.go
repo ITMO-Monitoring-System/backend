@@ -41,3 +41,9 @@ type ListUsersRequest struct {
 type ListUsersResponse struct {
 	Users []UserResponse `json:"users"`
 }
+
+type FacesMetaResponse struct {
+	HasFaces  bool     `json:"has_faces"`
+	UpdatedAt *string  `json:"updated_at,omitempty"`
+	Slots     []string `json:"slots,omitempty"`
+}

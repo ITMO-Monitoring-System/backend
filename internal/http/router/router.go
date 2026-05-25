@@ -137,6 +137,8 @@ func New(d Dependencies) *mux.Router {
 	userProtected.Use(jwtMW)
 	userProtected.HandleFunc("/upload/faces", d.User.UploadMyFaces).Methods(http.MethodPost)
 	userProtected.HandleFunc("/upload/faces/{isu}", d.User.UploadFaces).Methods(http.MethodPost)
+	userProtected.HandleFunc("/faces/me/meta", d.User.GetMyFacesMeta).Methods(http.MethodGet)
+	userProtected.HandleFunc("/faces/me/{slot}", d.User.GetMyFace).Methods(http.MethodGet)
 
 	// consents (protected)
 	consentGroup := userGroup.PathPrefix("/consents").Subrouter()

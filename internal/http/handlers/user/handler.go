@@ -11,7 +11,9 @@ import (
 	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -23,6 +25,8 @@ type UserService interface {
 	GetUserRoles(ctx context.Context, isu string) ([]string, error)
 	ListUsers(ctx context.Context, limit, offset int, role string) ([]UserResponse, error)
 	DeleteUser(ctx context.Context, isu string) error
+	GetUserFace(ctx context.Context, isu string, slot domain.FaceSlot) ([]byte, time.Time, error)
+	GetUserFacesMeta(ctx context.Context, isu string) (FacesMetaResponse, error)
 }
 
 type UserHandler struct {
@@ -329,4 +333,75 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.WriteJSON(w, http.StatusOK, "ok")
+}
+
+// GetMyFacesMeta godoc
+// @Summary      Метаданные загруженных фото лица
+// @Description  Возвращает признак наличия фото и дату последнего обновления.
+// @Tags         users
+// @Produce      json
+// @Param Authorization header string true "Bearer <JWT>"
+// @Success      200 {object} FacesMetaResponse
+// @Failure      401 {object} response.ErrorResponse
+// @Security     BearerAuth
+// @Router       /api/user/faces/me/meta [get]
+func (h *UserHandler) GetMyFacesMeta(w http.ResponseWriter, r *http.Request) {
+	isu, ok := middleware.UserID(r.Context())
+	if !ok || strings.TrimSpace(isu) == "" {
+		response.WriteError(w, http.StatusUnauthorized, "authorization required")
+		return
+	}
+
+	meta, err := h.userService.GetUserFacesMeta(r.Context(), isu)
+	if err != nil {
+		response.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.WriteJSON(w, http.StatusOK, meta)
+}
+
+// GetMyFace godoc
+// @Summary      Получить фото лица студента (левая/фронт/правая)
+// @Description  Возвращает байты одной из трёх сохранённых фотографий с угаданным Content-Type.
+// @Tags         users
+// @Produce      image/jpeg
+// @Param Authorization header string true "Bearer <JWT>"
+// @Param        slot path string true "left|center|right"
+// @Success      200
+// @Failure      400 {object} response.ErrorResponse "Неверный slot"
+// @Failure      401 {object} response.ErrorResponse
+// @Failure      404 {object} response.ErrorResponse "Фото не загружено"
+// @Security     BearerAuth
+// @Router       /api/user/faces/me/{slot} [get]
+func (h *UserHandler) GetMyFace(w http.ResponseWriter, r *http.Request) {
+	isu, ok := middleware.UserID(r.Context())
+	if !ok || strings.TrimSpace(isu) == "" {
+		response.WriteError(w, http.StatusUnauthorized, "authorization required")
+		return
+	}
+
+	slotRaw := mux.Vars(r)["slot"]
+	slot, ok := domain.ParseFaceSlot(slotRaw)
+	if !ok {
+		response.WriteError(w, http.StatusBadRequest, "slot must be one of: left, center, right")
+		return
+	}
+
+	data, updatedAt, err := h.userService.GetUserFace(r.Context(), isu, slot)
+	if err != nil {
+		if errors.Is(err, domain.ErrFaceImageNotFound) {
+			response.WriteError(w, http.StatusNotFound, "face image not found")
+			return
+		}
+		response.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	ct := http.DetectContentType(data)
+	w.Header().Set("Content-Type", ct)
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.Header().Set("Last-Modified", updatedAt.UTC().Format(http.TimeFormat))
+	w.Header().Set("Cache-Control", "private, max-age=0, must-revalidate")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }

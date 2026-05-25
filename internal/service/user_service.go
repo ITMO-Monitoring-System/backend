@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"monitoring_backend/internal/domain"
 	"monitoring_backend/internal/repository/postgres"
 	"monitoring_backend/internal/service/common"
 	"strings"
+	"time"
 
 	http "monitoring_backend/internal/http/handlers/user"
 )
@@ -139,4 +141,32 @@ func (s *userService) DeleteUser(ctx context.Context, isu string) error {
 		return fmt.Errorf("isu is empty")
 	}
 	return s.userRepo.Delete(ctx, isu)
+}
+
+func (s *userService) GetUserFace(ctx context.Context, isu string, slot domain.FaceSlot) ([]byte, time.Time, error) {
+	isu = strings.TrimSpace(isu)
+	if isu == "" {
+		return nil, time.Time{}, fmt.Errorf("isu is empty")
+	}
+	return s.userRepo.GetFaceImage(ctx, isu, slot)
+}
+
+func (s *userService) GetUserFacesMeta(ctx context.Context, isu string) (http.FacesMetaResponse, error) {
+	isu = strings.TrimSpace(isu)
+	if isu == "" {
+		return http.FacesMetaResponse{}, fmt.Errorf("isu is empty")
+	}
+	updatedAt, err := s.userRepo.GetFacesUpdatedAt(ctx, isu)
+	if err != nil {
+		if errors.Is(err, domain.ErrFaceImageNotFound) {
+			return http.FacesMetaResponse{HasFaces: false}, nil
+		}
+		return http.FacesMetaResponse{}, err
+	}
+	ts := updatedAt.UTC().Format(time.RFC3339)
+	return http.FacesMetaResponse{
+		HasFaces:  true,
+		UpdatedAt: &ts,
+		Slots:     []string{string(domain.FaceSlotLeft), string(domain.FaceSlotCenter), string(domain.FaceSlotRight)},
+	}, nil
 }

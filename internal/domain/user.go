@@ -36,7 +36,37 @@ type UserFaces struct {
 var (
 	ErrEmbeddingServiceUnavailable = errors.New("embedding service unavailable")
 	ErrFaceNotDetected             = errors.New("face not detected in photo")
+	ErrFaceImageNotFound           = errors.New("face image not found")
 )
+
+type FaceSlot string
+
+const (
+	FaceSlotLeft   FaceSlot = "left"
+	FaceSlotCenter FaceSlot = "center"
+	FaceSlotRight  FaceSlot = "right"
+)
+
+func ParseFaceSlot(s string) (FaceSlot, bool) {
+	switch FaceSlot(s) {
+	case FaceSlotLeft, FaceSlotCenter, FaceSlotRight:
+		return FaceSlot(s), true
+	}
+	return "", false
+}
+
+// Column returns the bytea column name for a given slot.
+func (s FaceSlot) Column() string {
+	switch s {
+	case FaceSlotLeft:
+		return "left_face"
+	case FaceSlotRight:
+		return "right_face"
+	case FaceSlotCenter:
+		return "full_face"
+	}
+	return ""
+}
 
 const defaultEmbeddingServiceURL = "https://projctviscon.vps.webdock.cloud/recognizing/api/embedding"
 

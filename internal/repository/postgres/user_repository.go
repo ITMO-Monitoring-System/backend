@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"monitoring_backend/internal/domain"
 	"strings"
+	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -69,15 +71,17 @@ func (u *userRepository) AddFaceEmbeddings(ctx context.Context, user *domain.Use
 		INSERT INTO cores.face_images (student_id,
 			left_face, left_face_embedding,
 			right_face, right_face_embedding,
-			full_face, full_face_embedding)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+			full_face, full_face_embedding,
+			updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, now())
 		ON CONFLICT (student_id) DO UPDATE SET
 			left_face            = EXCLUDED.left_face,
 			left_face_embedding  = EXCLUDED.left_face_embedding,
 			right_face           = EXCLUDED.right_face,
 			right_face_embedding = EXCLUDED.right_face_embedding,
 			full_face            = EXCLUDED.full_face,
-			full_face_embedding  = EXCLUDED.full_face_embedding;
+			full_face_embedding  = EXCLUDED.full_face_embedding,
+			updated_at           = now();
  `
 
 	_, err = tx.Exec(ctx, insertQuery,
@@ -279,6 +283,40 @@ func (u *userRepository) HasFaceImages(ctx context.Context, isu string) (bool, e
 func (u *userRepository) DeleteFaceImages(ctx context.Context, isu string) error {
 	_, err := u.db.Exec(ctx, `DELETE FROM cores.face_images WHERE student_id = $1`, isu)
 	return err
+}
+
+func (u *userRepository) GetFaceImage(ctx context.Context, isu string, slot domain.FaceSlot) ([]byte, time.Time, error) {
+	col := slot.Column()
+	if col == "" {
+		return nil, time.Time{}, fmt.Errorf("invalid face slot: %q", slot)
+	}
+
+	var (
+		data      []byte
+		updatedAt time.Time
+	)
+	// slot.Column() возвращает только whitelisted значения (см. domain.FaceSlot),
+	// поэтому интерполяция в имя колонки безопасна.
+	query := fmt.Sprintf(`SELECT %s, updated_at FROM cores.face_images WHERE student_id = $1`, col)
+	err := u.db.QueryRow(ctx, query, isu).Scan(&data, &updatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, time.Time{}, domain.ErrFaceImageNotFound
+	}
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	return data, updatedAt, nil
+}
+
+func (u *userRepository) GetFacesUpdatedAt(ctx context.Context, isu string) (time.Time, error) {
+	var updatedAt time.Time
+	err := u.db.QueryRow(ctx,
+		`SELECT updated_at FROM cores.face_images WHERE student_id = $1`, isu,
+	).Scan(&updatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, domain.ErrFaceImageNotFound
+	}
+	return updatedAt, err
 }
 
 func (u *userRepository) GetRoles(ctx context.Context, isu string) ([]string, error) {

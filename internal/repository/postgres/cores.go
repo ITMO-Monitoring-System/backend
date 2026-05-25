@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"monitoring_backend/internal/domain"
+	"time"
 )
 
 type UserRepository interface {
@@ -17,6 +18,8 @@ type UserRepository interface {
 	AddFaceEmbeddings(ctx context.Context, userFaces *domain.UserFaces) error
 	HasFaceImages(ctx context.Context, isu string) (bool, error)
 	DeleteFaceImages(ctx context.Context, isu string) error
+	GetFaceImage(ctx context.Context, isu string, slot domain.FaceSlot) ([]byte, time.Time, error)
+	GetFacesUpdatedAt(ctx context.Context, isu string) (time.Time, error)
 
 	AddRole(ctx context.Context, isu, role string) error
 	GetRoles(ctx context.Context, isu string) ([]string, error)
