@@ -150,6 +150,13 @@ func (h *Hub) Broadcast(lectureID int64, data []byte) {
 		return
 	}
 
+	// Пустой PersonID = face-recognizing не нашёл совпадения. Раньше шёл дальше и
+	// падал на FK-ограничении в visits.lectures_visiting. Просто выходим — это
+	// нормальный сигнал, не ошибка.
+	if request.PersonID == "" {
+		return
+	}
+
 	// Dedup: если этот же студент уже отмечен в текущем окне — пропускаем INSERT
 	// и не рассылаем повторное событие. lastSeen скользит дальше.
 	if h.shouldDedup(request.LectureID, request.PersonID) {
