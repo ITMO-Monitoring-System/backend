@@ -37,6 +37,8 @@ var (
 	ErrEmbeddingServiceUnavailable = errors.New("embedding service unavailable")
 	ErrFaceNotDetected             = errors.New("face not detected in photo")
 	ErrFaceImageNotFound           = errors.New("face image not found")
+	ErrUserNotFound                = errors.New("user not found")
+	ErrUserHasLectures             = errors.New("user is a teacher with existing lectures")
 )
 
 type FaceSlot string

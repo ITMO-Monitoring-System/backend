@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"monitoring_backend/internal/domain"
 	httputil "monitoring_backend/internal/http/handlers"
 	"monitoring_backend/internal/http/middleware"
@@ -328,7 +329,15 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.userService.DeleteUser(r.Context(), isu); err != nil {
-		response.WriteError(w, http.StatusInternalServerError, err.Error())
+		switch {
+		case errors.Is(err, domain.ErrUserNotFound):
+			response.WriteError(w, http.StatusNotFound, "user not found")
+		case errors.Is(err, domain.ErrUserHasLectures):
+			response.WriteError(w, http.StatusConflict, "user is a teacher with existing lectures — reassign or delete them first")
+		default:
+			log.Printf("delete user %s failed: %v", isu, err)
+			response.WriteError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 

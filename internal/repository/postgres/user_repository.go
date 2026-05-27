@@ -168,8 +168,39 @@ func (u *userRepository) Update(ctx context.Context, user domain.User) error {
 }
 
 func (u *userRepository) Delete(ctx context.Context, isu string) error {
-	_, err := u.db.Exec(ctx, `DELETE FROM cores.users WHERE isu = $1`, isu)
-	return err
+	tx, err := u.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	childDeletes := []string{
+		`DELETE FROM visits.lectures_visiting   WHERE user_id    = $1`,
+		`DELETE FROM visits.practices_visiting  WHERE user_id    = $1`,
+		`DELETE FROM universities_data.students_groups WHERE user_id = $1`,
+		`DELETE FROM cores.face_images          WHERE student_id = $1`,
+		`DELETE FROM cores.users_roles          WHERE isu        = $1`,
+		`DELETE FROM cores.users_passwords      WHERE isu        = $1`,
+	}
+	for _, q := range childDeletes {
+		if _, err := tx.Exec(ctx, q, isu); err != nil {
+			return err
+		}
+	}
+
+	tag, err := tx.Exec(ctx, `DELETE FROM cores.users WHERE isu = $1`, isu)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			return domain.ErrUserHasLectures
+		}
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (u *userRepository) List(ctx context.Context, limit, offset int, role string) ([]domain.User, error) {
