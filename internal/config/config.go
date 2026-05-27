@@ -41,6 +41,9 @@ type PostgresConfig struct {
 	Password string `toml:"password"`
 	Database string `toml:"database"`
 	SSLMode  string `toml:"sslmode"` // disable / require
+	// MaxConns — верхняя граница для pgxpool. По умолчанию (0) pgxpool ставит 4*NumCPU,
+	// что мало под нагрузкой WS-консьюмера + параллельных HTTP-запросов.
+	MaxConns int32 `toml:"max_conns"`
 }
 
 // LoggerConfig параметры логгера.

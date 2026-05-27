@@ -84,6 +84,9 @@ func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App 
 	visitsHandler := visits.NewVisitsHandler(visitsServ)
 
 	wsHub := ws.NewHub(visitsServ)
+	// Periodic cleanup of dedup-cache (lastSeen map). Hub живёт всю жизнь процесса —
+	// ОК передать Background, остановки GC отдельной не требуется.
+	wsHub.StartDedupGC(context.Background())
 	lectureManager := lecture.NewManager(wsHub, cfg.Rabbit.AMPQURL)
 
 	r := httpRouter.New(httpRouter.Dependencies{

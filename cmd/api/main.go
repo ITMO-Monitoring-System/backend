@@ -29,7 +29,14 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	db, err := pgxpool.New(ctx, cfg.Postgres.DSN())
+	poolCfg, err := pgxpool.ParseConfig(cfg.Postgres.DSN())
+	if err != nil {
+		log.Fatalf("failed to parse postgres dsn: %v", err)
+	}
+	if cfg.Postgres.MaxConns > 0 {
+		poolCfg.MaxConns = cfg.Postgres.MaxConns
+	}
+	db, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		log.Fatalf("failed to connect postgres: %v", err)
 	}
