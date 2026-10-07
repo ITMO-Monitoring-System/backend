@@ -34,6 +34,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-https://projctviscon.vps.webdock.cloud/recognizing/api/embedding}
       VISITS_DEDUP_WINDOW_SEC: "20"

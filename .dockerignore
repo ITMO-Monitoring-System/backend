@@ -47,3 +47,4 @@ Thumbs.db
 # Env files (если не передаёшь их через COPY)
 .env
 .env.*
+config.toml
