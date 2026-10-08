@@ -145,9 +145,9 @@ def validate(path):
         raise RuntimeError('Unknown image key in release.json.')
     for name, value in images.items():
         repo = REPOSITORIES[name]
-        suffix = r'(?:@sha256:[a-f0-9]{64}|:sha-[a-f0-9]{40})' if name in SERVICES else r'@sha256:[a-f0-9]{64}'
+        suffix = r'(?:@sha256:[a-f0-9]{64}|:sha-[a-f0-9]{40}|:main)' if name in SERVICES else r'@sha256:[a-f0-9]{64}'
         if not isinstance(value, str) or not re.fullmatch(re.escape(repo) + suffix, value):
-            raise RuntimeError(f'Invalid {name} image. Use the expected repository and full digest (or full sha-tag for apps).')
+            raise RuntimeError(f'Invalid {name} image. Use the expected repository and digest, sha-tag, or main tag for apps.')
     return images
 
 

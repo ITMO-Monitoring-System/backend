@@ -1,6 +1,6 @@
 {
-  "backend": "ghcr.io/itmo-monitoring-system/backend:sha-3c6ce13cdf000e4bcbad0f5d9e964ec90b92575e",
-  "frontend": "ghcr.io/itmo-monitoring-system/frontend:sha-c89e028f6d69fa6ed768e0abe69e59ae442e7f3c",
-  "face_tracking": "ghcr.io/itmo-monitoring-system/face-tracking:sha-690439c3b89ffd5b57f47e3f7e236113752b7ddd",
-  "face_recognizing": "ghcr.io/itmo-monitoring-system/face-recognizing:sha-d2b3214ba4707c00fe04e0aba391c254787efd32"
+  "backend": "ghcr.io/itmo-monitoring-system/backend:main",
+  "frontend": "ghcr.io/itmo-monitoring-system/frontend:main",
+  "face_tracking": "ghcr.io/itmo-monitoring-system/face-tracking:main",
+  "face_recognizing": "ghcr.io/itmo-monitoring-system/face-recognizing:main"
 }
