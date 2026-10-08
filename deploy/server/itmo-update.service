@@ -1,0 +1,12 @@
+[Unit]
+Description=Check GHCR and deploy changed ITMO Monitoring service
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=itmo-deploy
+Group=itmo-deploy
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/itmo-monitoring/deploy/watch_updates.py

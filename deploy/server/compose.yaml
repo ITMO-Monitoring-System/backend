@@ -1,0 +1,199 @@
+name: itmo-monitoring
+
+services:
+  db:
+    image: ${POSTGRES_IMAGE:?Run manage.py deploy}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: monitoring
+      POSTGRES_DB: monitoring
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run manage.py init}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U monitoring -d monitoring"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  rabbitmq-crops:
+    image: ${RABBITMQ_IMAGE:?Run manage.py deploy}
+    hostname: itmo-rabbitmq-crops
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: tracking
+      RABBITMQ_DEFAULT_PASS: ${CROPS_PASSWORD:?Run manage.py init}
+    volumes:
+      - rabbitmq_crops_data:/var/lib/rabbitmq
+    networks:
+      default:
+        aliases: [face_tracking_rabbitmq]
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+
+  rabbitmq-results:
+    image: ${RABBITMQ_IMAGE:?Run manage.py deploy}
+    hostname: itmo-rabbitmq-results
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: recognizing
+      RABBITMQ_DEFAULT_PASS: ${RESULTS_PASSWORD:?Run manage.py init}
+    volumes:
+      - rabbitmq_results_data:/var/lib/rabbitmq
+    networks:
+      default:
+        aliases: [recognizing-rabbitmq]
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+
+  redis:
+    image: ${REDIS_IMAGE:?Run manage.py deploy}
+    restart: unless-stopped
+    command: [redis-server, --appendonly, "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  migrate:
+    image: ${MIGRATE_IMAGE:?Run manage.py deploy}
+    profiles: [tools]
+    restart: "no"
+    volumes:
+      - ${RELEASE_DIR:?Run manage.py deploy}/migrations:/migrations:ro
+    command:
+      - -path=/migrations
+      - -database=postgres://monitoring:${POSTGRES_PASSWORD}@db:5432/monitoring?sslmode=disable
+      - up
+
+  model-preload:
+    image: ${FACE_RECOGNIZING_IMAGE:?Run manage.py deploy}
+    profiles: [tools]
+    restart: "no"
+    entrypoint: [python, download_model.py]
+    environment: &recognition-model
+      FACE_ANALYSIS_MODEL: buffalo_m
+      FACE_ANALYSIS_CTX_ID: "-1"
+      FACE_ANALYSIS_DET_SIZE: "640"
+      FACE_ORT_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      NO_ALBUMENTATIONS_UPDATE: "1"
+    volumes:
+      - /opt/itmo-monitoring/models:/root/.insightface
+
+  backend:
+    image: ${BACKEND_IMAGE:?Run manage.py deploy}
+    restart: unless-stopped
+    depends_on:
+      db: {condition: service_healthy}
+      rabbitmq-results: {condition: service_healthy}
+    environment:
+      EMBEDDING_SERVICE_URL: http://face_recognizing:8180/api/embedding
+      VISITS_DEDUP_WINDOW_SEC: "20"
+    volumes:
+      - /opt/itmo-monitoring/configs/backend.toml:/app/config.toml:ro
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  face_recognizing:
+    image: ${FACE_RECOGNIZING_IMAGE:?Run manage.py deploy}
+    restart: unless-stopped
+    depends_on:
+      backend: {condition: service_healthy}
+      rabbitmq-crops: {condition: service_healthy}
+      rabbitmq-results: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      <<: *recognition-model
+      FACE_RECOGNITION_WORKERS: "4"
+      FACE_RECOGNITION_THRESHOLD: "0.55"
+      FACE_DIRECT_RECOGNITION: "0"
+      OUT_AMQP_URL: amqp://recognizing:${RESULTS_PASSWORD}@recognizing-rabbitmq:5672/
+      OUT_QUEUE_PREFIX: faces.recognition.out
+      BACKEND_URL: http://backend:8080
+      BACKEND_START_PATH: /api/service/lecture/start
+      BACKEND_STOP_PATH: /api/service/lecture/stop
+      BACKEND_DATASET_PATH: /api/service/dataset
+      REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - /opt/itmo-monitoring/models:/root/.insightface
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8180/health', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+
+  face_tracking:
+    image: ${FACE_TRACKING_IMAGE:?Run manage.py deploy}
+    restart: unless-stopped
+    depends_on:
+      face_recognizing: {condition: service_healthy}
+      rabbitmq-crops: {condition: service_healthy}
+    environment:
+      CAMERA_SOURCE: none
+      RABBITMQ_URL: amqp://tracking:${CROPS_PASSWORD}@face_tracking_rabbitmq:5672/
+      CONNECT_SERVICE_IN_AMQP_URL: amqp://tracking:${CROPS_PASSWORD}@face_tracking_rabbitmq:5672/
+      CONNECT_SERVICE_URL: http://face_recognizing:8180/api/lecture/start
+      CONNECT_SERVICE_THRESHOLD: "0.45"
+      CONNECT_SERVICE_TIMEOUT_SECONDS: "60"
+      LECTURE_START_READY_TIMEOUT_SECONDS: "0"
+      RABBITMQ_EXCHANGE: faces
+      RABBITMQ_LECTURE_QUEUE_TEMPLATE: "faces.queue.lecture.{lecture_id}"
+      RABBITMQ_LECTURE_ROUTING_KEY_TEMPLATE: "lecture.{lecture_id}.face"
+      FACE_MIN_CONFIDENCE: "0.5"
+      FACE_MODEL_SELECTION: "1"
+      FPS: "15"
+      JPEG_QUALITY: "80"
+      JPEG_QUALITY_CROPS: "70"
+      BINARY_AMQP: "1"
+      TRACKER_ENABLED: "true"
+      TRACKER_REPUBLISH_INTERVAL: "30"
+      AUTO_PUBLISH_INTERVAL: "0.3"
+      PUBLISH_MODE: faces
+      FACE_PAD_Y_RATIO: "0.35"
+      FACE_TOP_EXTRA_RATIO: "0.60"
+      FACE_BOTTOM_EXTRA_RATIO: "0.25"
+      FACE_CROP_MAKE_SQUARE: "true"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?Run manage.py deploy}
+    restart: unless-stopped
+    depends_on:
+      backend: {condition: service_healthy}
+      face_tracking: {condition: service_healthy}
+    ports:
+      - "127.0.0.1:18080:80"
+    volumes:
+      - ${RELEASE_DIR:?Run manage.py deploy}/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1/fizon/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  postgres_data:
+  rabbitmq_crops_data:
+  rabbitmq_results_data:
+  redis_data:

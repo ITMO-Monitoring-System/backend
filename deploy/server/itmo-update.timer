@@ -1,0 +1,12 @@
+[Unit]
+Description=Check ITMO Monitoring images every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Persistent=true
+Unit=itmo-update.service
+
+[Install]
+WantedBy=timers.target

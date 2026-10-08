@@ -48,3 +48,6 @@ Thumbs.db
 .env
 .env.*
 config.toml
+
+# Server deployment sources are versioned with backend but are not image input.
+deploy/server/
