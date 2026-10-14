@@ -184,6 +184,7 @@ services:
       face_tracking: {condition: service_healthy}
     ports:
       - "127.0.0.1:18080:80"
+      - "172.16.22.158:80:80"
     volumes:
       - ${RELEASE_DIR:?Run manage.py deploy}/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
