@@ -72,7 +72,7 @@ func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 
 	m.mu.Unlock()
 
-	log.Printf("starting rabbit consumer (lecture_id=%d queue=%s amqp_url=%q)", req.LectureID, req.Queue, m.amqpURL)
+	log.Printf("starting rabbit consumer (lecture_id=%d queue=%s)", req.LectureID, req.Queue)
 	go rabbit.StartConsumer(ctx, m.amqpURL, req.Queue, req.LectureID, m.hub)
 
 	response.WriteJSON(w, http.StatusOK, "Consumer started")

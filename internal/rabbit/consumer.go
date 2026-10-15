@@ -25,7 +25,7 @@ func StartConsumer(ctx context.Context, amqpURL string, queue string, lectureID 
 		default:
 		}
 
-		log.Printf("rabbit consumer connecting (lecture_id=%d queue=%s amqp_url=%q)", lectureID, queue, amqpURL)
+		log.Printf("rabbit consumer connecting (lecture_id=%d queue=%s)", lectureID, queue)
 		err := consumeOnce(ctx, amqpURL, queue, lectureID, hub)
 		if err == nil {
 			log.Printf("rabbit consumer stopped (lecture_id=%d queue=%s)", lectureID, queue)
