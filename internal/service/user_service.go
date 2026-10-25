@@ -120,10 +120,10 @@ func (s *userService) AddUserRole(ctx context.Context, request http.AddUserRoleR
 	role := strings.TrimSpace(request.Role)
 
 	if isu == "" {
-		return fmt.Errorf("isu is empty")
+		return fmt.Errorf("%w: ИСУ обязателен", domain.ErrInvalidInput)
 	}
-	if role == "" {
-		return fmt.Errorf("role is empty")
+	if role != "admin" && role != "teacher" && role != "student" {
+		return fmt.Errorf("%w: Неизвестная роль", domain.ErrInvalidInput)
 	}
 
 	if err := s.userRepo.AddRole(ctx, isu, role); err != nil {

@@ -200,13 +200,14 @@ func writeAddFacesError(w http.ResponseWriter, err error) {
 // @Failure      400 {object} response.ErrorResponse "Некорректный запрос"
 // @Failure      404 {object} response.ErrorResponse "Пользователь не найден"
 // @Failure      409 {object} response.ErrorResponse "Роль уже назначена"
+// @Failure      403 {object} response.ErrorResponse "Нет прав"
 // @Failure      500 {object} response.ErrorResponse "Внутренняя ошибка"
 // @Security     BearerAuth
 // @Router       /api/user/admin/roles [post]
 func (h *UserHandler) AddRole(w http.ResponseWriter, r *http.Request) {
 	role, ok := middleware.Role(r.Context())
 	if !ok || role != "admin" {
-		response.WriteError(w, http.StatusBadRequest, "Invalid role")
+		response.WriteError(w, http.StatusForbidden, "admin only")
 		return
 	}
 
@@ -225,7 +226,14 @@ func (h *UserHandler) AddRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.userService.AddUserRole(r.Context(), req); err != nil {
-		response.WriteError(w, http.StatusInternalServerError, err.Error())
+		switch {
+		case errors.Is(err, domain.ErrRoleAlreadyAssigned):
+			response.WriteError(w, http.StatusConflict, "role already assigned")
+		case errors.Is(err, domain.ErrUserNotFound):
+			response.WriteError(w, http.StatusNotFound, "user not found")
+		default:
+			httputil.WriteServiceError(w, err)
+		}
 		return
 	}
 

@@ -331,13 +331,13 @@ func (u *userRepository) AddRole(ctx context.Context, isu, role string) error {
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
-		// unique violation (если есть UNIQUE на (isu, role))
+		// Preserve domain errors so the HTTP layer can distinguish a conflict from a failure.
 		if pgErr.Code == "23505" {
-			return fmt.Errorf("user already exists")
+			return domain.ErrRoleAlreadyAssigned
 		}
 		// foreign key violation (isu не существует в cores.users)
 		if pgErr.Code == "23503" {
-			return fmt.Errorf("user doesn't exist")
+			return domain.ErrUserNotFound
 		}
 	}
 

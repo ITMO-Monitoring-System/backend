@@ -1571,6 +1571,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
+                    },
+                    "403": {
+                        "description": "Нет прав",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
                     }
                 }
             }

@@ -1431,6 +1431,10 @@ paths:
           description: Некорректный запрос
           schema:
             $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Нет прав
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
         "404":
           description: Пользователь не найден
           schema:

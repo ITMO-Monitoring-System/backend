@@ -38,6 +38,7 @@ var (
 	ErrFaceNotDetected             = errors.New("face not detected in photo")
 	ErrFaceImageNotFound           = errors.New("face image not found")
 	ErrUserNotFound                = errors.New("user not found")
+	ErrRoleAlreadyAssigned         = errors.New("role already assigned")
 	ErrUserHasLectures             = errors.New("user is a teacher with existing lectures")
 )
 
