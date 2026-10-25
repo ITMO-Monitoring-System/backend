@@ -215,7 +215,17 @@ definitions:
         type: string
     type: object
   user.AddUserRequest:
+    type: object
+    required:
+    - isu
+    - last_name
+    - name
+    - password
     properties:
+      department_id:
+        type: integer
+      group_code:
+        type: string
       isu:
         type: string
       last_name:
@@ -226,12 +236,10 @@ definitions:
         type: string
       patronymic:
         type: string
-    required:
-    - isu
-    - last_name
-    - name
-    - password
-    type: object
+      roles:
+        type: array
+        items:
+          type: string
   user.AddUserRoleRequest:
     properties:
       isu:
@@ -368,6 +376,47 @@ definitions:
       lecture_id:
         type: integer
     type: object
+  visits.TeacherReport:
+    type: object
+    properties:
+      items:
+        type: array
+        items:
+          $ref: '#/definitions/visits.AttendanceRow'
+      lectures:
+        type: array
+        items:
+          $ref: '#/definitions/visits.ReportLecture'
+  visits.ReportLecture:
+    type: object
+    properties:
+      date:
+        type: string
+      groups:
+        type: array
+        items:
+          type: string
+      lecture_id:
+        type: integer
+  visits.AttendanceRow:
+    type: object
+    properties:
+      detection_count:
+        type: integer
+      first_name:
+        type: string
+      group_code:
+        type: string
+      isu:
+        type: string
+      last_name:
+        type: string
+      lecture_id:
+        type: integer
+      patronymic:
+        type: string
+      present_seconds:
+        type: integer
 info:
   contact: {}
   description: Backend for lecture monitoring via RabbitMQ and WebSocket
@@ -500,6 +549,53 @@ paths:
       summary: Get department by ID
       tags:
       - departments
+    put:
+      security:
+      - BearerAuth: []
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      tags:
+      - departments
+      summary: Редактировать направление с сохранением связанных групп
+      parameters:
+      - type: integer
+        description: ID направления
+        name: id
+        in: path
+        required: true
+      - description: Код, название и псевдоним (null для очистки)
+        name: request
+        in: body
+        required: true
+        schema:
+          $ref: '#/definitions/department.CreateDepartmentRequest'
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/department.DepartmentResponse'
+        '400':
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '403':
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '404':
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '409':
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '500':
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
   /api/departments/code/{code}:
     get:
       parameters:
@@ -1259,42 +1355,54 @@ paths:
       - practices
   /api/user/admin/create:
     post:
+      security:
+      - BearerAuth: []
+      description: Атомарно создаёт пользователя, пароль, роли и необязательную группу
+        студента. Для группы нужен department_id.
       consumes:
       - application/json
-      description: Создаёт нового пользователя с ISU, именем, фамилией и факультативным
-        отчеством.
+      produces:
+      - application/json
+      tags:
+      - users
+      summary: Добавление нового пользователя
       parameters:
-      - description: Bearer <JWT>
-        in: header
+      - type: string
+        description: Bearer <JWT>
         name: Authorization
+        in: header
         required: true
-        type: string
       - description: Пользователь для добавления
-        in: body
         name: user
+        in: body
         required: true
         schema:
           $ref: '#/definitions/user.AddUserRequest'
-      produces:
-      - application/json
       responses:
-        "201":
+        '201':
           description: ok
           schema:
             type: string
-        "400":
+        '400':
           description: Некорректный JSON или обязательные поля отсутствуют
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-        "500":
+        '500':
           description: Ошибка сервиса при добавлении пользователя
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Добавление нового пользователя
-      tags:
-      - users
+        '403':
+          description: Нет прав
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '404':
+          description: Группа не найдена
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '409':
+          description: ИСУ уже существует
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
   /api/user/admin/roles:
     post:
       consumes:
@@ -1721,4 +1829,56 @@ paths:
       summary: WebSocket connection for lecture streaming
       tags:
       - websocket
+  /api/visits/teacher/{subject_id}/report:
+    get:
+      security:
+      - BearerAuth: []
+      description: Только свои начавшиеся лекции и текущий состав привязанных групп.
+        Все строки периода без обрезки; для слишком большого отчёта возвращается 400.
+      produces:
+      - application/json
+      tags:
+      - visits
+      summary: Полный отчёт по посещаемости лекций преподавателя
+      parameters:
+      - type: integer
+        description: Предмет
+        name: subject_id
+        in: path
+        required: true
+      - type: string
+        description: Начало периода, RFC3339 или YYYY-MM-DD; по умолчанию 90 дней назад
+        name: date_from
+        in: query
+      - type: string
+        description: 'Конец периода: дата включительно, RFC3339 исключительно; по умолчанию
+          сейчас'
+        name: date_to
+        in: query
+      - type: integer
+        description: 'Допустимый разрыв между отметками: 5–600 секунд, по умолчанию
+          180'
+        name: gap_seconds
+        in: query
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/visits.TeacherReport'
+        '400':
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '401':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '403':
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '500':
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
 swagger: "2.0"

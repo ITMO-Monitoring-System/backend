@@ -1,11 +1,14 @@
 package user
 
 type AddUserRequest struct {
-	ISU        string  `json:"isu" validate:"required"`
-	Name       string  `json:"name" validate:"required"`
-	LastName   string  `json:"last_name" validate:"required"`
-	Patronymic *string `json:"patronymic"`
-	Password   string  `json:"password" validate:"required"`
+	ISU          string   `json:"isu" validate:"required"`
+	Name         string   `json:"name" validate:"required"`
+	LastName     string   `json:"last_name" validate:"required"`
+	Patronymic   *string  `json:"patronymic"`
+	Password     string   `json:"password" validate:"required"`
+	Roles        []string `json:"roles,omitempty"`
+	DepartmentID *int64   `json:"department_id,omitempty"`
+	GroupCode    *string  `json:"group_code,omitempty"`
 }
 
 type AddUserFacesRequest struct {

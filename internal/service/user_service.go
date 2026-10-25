@@ -23,29 +23,51 @@ func NewUserService(userRepo postgres.UserRepository, consentRepo postgres.Conse
 }
 
 func (s *userService) AddUser(ctx context.Context, request http.AddUserRequest) error {
-	user := domain.User{
-		ISU:        request.ISU,
-		FirstName:  request.Name,
-		LastName:   request.LastName,
-		Patronymic: request.Patronymic,
+	request.ISU = strings.TrimSpace(request.ISU)
+	request.Name = strings.TrimSpace(request.Name)
+	request.LastName = strings.TrimSpace(request.LastName)
+	if request.ISU == "" || request.Name == "" || request.LastName == "" || strings.TrimSpace(request.Password) == "" {
+		return fmt.Errorf("%w: ИСУ, имя, фамилия и пароль обязательны", domain.ErrInvalidInput)
 	}
-
-	err := s.userRepo.Create(ctx, &user)
+	if len(request.Password) > 72 || len([]rune(request.Name)) > 125 || len([]rune(request.LastName)) > 125 {
+		return fmt.Errorf("%w: Слишком длинное имя, фамилия или пароль (не более 72 байт)", domain.ErrInvalidInput)
+	}
+	if request.Patronymic != nil {
+		value := strings.TrimSpace(*request.Patronymic)
+		if len([]rune(value)) > 125 {
+			return fmt.Errorf("%w: Слишком длинное отчество", domain.ErrInvalidInput)
+		}
+		request.Patronymic = &value
+	}
+	roles := make([]string, 0, len(request.Roles))
+	seen := map[string]bool{}
+	for _, role := range request.Roles {
+		role = strings.TrimSpace(role)
+		if role != "admin" && role != "teacher" && role != "student" {
+			return fmt.Errorf("%w: Неизвестная роль", domain.ErrInvalidInput)
+		}
+		if !seen[role] {
+			roles = append(roles, role)
+			seen[role] = true
+		}
+	}
+	if request.GroupCode != nil {
+		value := strings.TrimSpace(*request.GroupCode)
+		request.GroupCode = &value
+		if value == "" || !seen["student"] || request.DepartmentID == nil || *request.DepartmentID <= 0 {
+			return fmt.Errorf("%w: Для группы выберите роль студента и направление", domain.ErrInvalidInput)
+		}
+	} else if request.DepartmentID != nil {
+		return fmt.Errorf("%w: Выберите группу направления", domain.ErrInvalidInput)
+	}
+	passwordHash, err := common.HashPassword(request.Password)
 	if err != nil {
 		return err
 	}
-
-	password, err := common.HashPassword(request.Password)
-	if err != nil {
-		return err
-	}
-
-	err = s.userRepo.SetPassword(ctx, user.ISU, password)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return s.userRepo.CreateWithAccess(ctx, domain.User{
+		ISU: request.ISU, FirstName: request.Name, LastName: request.LastName,
+		Patronymic: request.Patronymic, Roles: roles, GroupCode: request.GroupCode,
+	}, passwordHash, request.DepartmentID)
 }
 
 func (s *userService) AddUserFaces(ctx context.Context, request http.AddUserFacesRequest) error {

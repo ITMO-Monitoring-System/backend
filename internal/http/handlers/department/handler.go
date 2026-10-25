@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	httputil "monitoring_backend/internal/http/handlers"
+	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
 	"net/http"
 
@@ -15,6 +16,7 @@ type DepartmentService interface {
 	GetByCode(ctx context.Context, req GetDepartmentByCodeRequest) (DepartmentResponse, error)
 	List(ctx context.Context, req ListDepartmentsRequest) (ListDepartmentsResponse, error)
 	Create(ctx context.Context, req CreateDepartmentRequest) (DepartmentResponse, error)
+	Update(ctx context.Context, id int64, req CreateDepartmentRequest) (DepartmentResponse, error)
 	Delete(ctx context.Context, id int64) error
 }
 
@@ -166,4 +168,38 @@ func (h *DepartmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// UpdateDepartment godoc
+// @Summary Редактировать направление с сохранением связанных групп
+// @Tags departments
+// @Accept json
+// @Produce json
+// @Param id path int true "ID направления"
+// @Param request body department.CreateDepartmentRequest true "Код, название и псевдоним (null для очистки)"
+// @Success 200 {object} department.DepartmentResponse
+// @Failure 400,403,404,409,500 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /api/departments/{id} [put]
+func (h *DepartmentHandler) Update(w http.ResponseWriter, r *http.Request) {
+	if role, ok := middleware.Role(r.Context()); !ok || role != "admin" {
+		response.WriteError(w, http.StatusForbidden, "admin only")
+		return
+	}
+	id, err := httputil.PathInt64(r, "id", mux.Vars(r))
+	if err != nil {
+		response.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	var req CreateDepartmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	result, err := h.service.Update(r.Context(), id, req)
+	if err != nil {
+		httputil.WriteServiceError(w, err)
+		return
+	}
+	response.WriteJSON(w, http.StatusOK, result)
 }

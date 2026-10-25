@@ -30,6 +30,7 @@ type LectureAttendance struct {
 }
 
 type visitsService interface {
+	GetTeacherReport(ctx context.Context, teacherISU string, subjectID int64, filter TeacherReportFilter) (TeacherReport, error)
 	GetVisitedSubjectsByISU(ctx context.Context, isu string) ([]domain.Subject, error)
 	GetStudentLecturesBySubject(ctx context.Context, isu string, subjectID int64, filter GetLecturesFilter) (items []LectureAttendance, total int, err error)
 

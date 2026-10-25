@@ -79,6 +79,7 @@ func New(d Dependencies) *mux.Router {
 	api.HandleFunc("/departments", d.Department.Create).Methods("POST")
 	api.HandleFunc("/departments/{id:[0-9]+}", d.Department.GetByID).Methods("GET")
 	api.HandleFunc("/departments/{id:[0-9]+}", d.Department.Delete).Methods("DELETE")
+	api.Handle("/departments/{id:[0-9]+}", jwtMW(http.HandlerFunc(d.Department.Update))).Methods(http.MethodPut)
 	api.HandleFunc("/departments/code/{code}", d.Department.GetByCode).Methods("GET")
 
 	api.HandleFunc("/departments/{department_id:[0-9]+}/groups", d.Group.ListByDepartment).Methods("GET")
@@ -114,6 +115,7 @@ func New(d Dependencies) *mux.Router {
 	visitsGroup.Use(jwtMW)
 	visitsGroup.HandleFunc("/lectures/subjects", d.VisitsHandler.GetVisitedSubjects).Methods(http.MethodGet)
 	visitsGroup.HandleFunc("/lectures/{subject_id}", d.VisitsHandler.GetStudentLecturesBySubject).Methods(http.MethodGet)
+	visitsGroup.HandleFunc("/teacher/{subject_id}/report", d.VisitsHandler.GetTeacherReport).Methods(http.MethodGet)
 	visitsGroup.HandleFunc("/teacher/{subject_id}/lectures", d.VisitsHandler.GetTeacherLecturesBySubject).Methods(http.MethodGet)
 	visitsGroup.HandleFunc("/teacher/{lecture_id}/groups", d.VisitsHandler.GetLectureGroups).Methods(http.MethodGet)
 	visitsGroup.HandleFunc("/teacher/{lecture_id}/{group_code}/students", d.VisitsHandler.GetLectureGroupStudents).Methods(http.MethodGet)

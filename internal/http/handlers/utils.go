@@ -76,6 +76,10 @@ func QueryTimeRFC3339(r *http.Request, key string) (time.Time, error) {
 }
 
 func WriteServiceError(w http.ResponseWriter, err error) {
+	if errors.Is(err, domain.ErrInvalidInput) || errors.Is(err, domain.ErrReportTooLarge) {
+		response.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	// 404
 	if errors.Is(err, pgx.ErrNoRows) ||
 		errors.Is(err, domain.ErrorDepartmentNotFound) ||

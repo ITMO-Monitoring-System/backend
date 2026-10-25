@@ -112,3 +112,7 @@ func (s *visitService) GetTeacherSubjects(ctx context.Context, teacherISU string
 	}
 	return s.repo.ListTeacherSubjects(ctx, teacherISU)
 }
+
+func (s *visitService) GetTeacherReport(ctx context.Context, teacherISU string, subjectID int64, filter visits.TeacherReportFilter) (visits.TeacherReport, error) {
+	return s.repo.GetTeacherReport(ctx, teacherISU, subjectID, filter)
+}

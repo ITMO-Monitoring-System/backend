@@ -129,3 +129,16 @@ func (r *departmentRepository) Delete(ctx context.Context, id int64) error {
 	_, err := r.db.Exec(ctx, `DELETE FROM universities_data.departments WHERE id = $1`, id)
 	return err
 }
+
+func (r *departmentRepository) Update(ctx context.Context, d domain.Department) (domain.Department, error) {
+	// Groups reference the immutable department ID; changing the code preserves every link.
+	var updated domain.Department
+	err := r.db.QueryRow(ctx, `UPDATE universities_data.departments
+		SET code = $2, name = $3, alias = $4 WHERE id = $1
+		RETURNING id, code, name, alias`, d.ID, d.Code, d.Name, d.Alias).
+		Scan(&updated.ID, &updated.Code, &updated.Name, &updated.Alias)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return updated, domain.ErrorDepartmentNotFound
+	}
+	return updated, err
+}

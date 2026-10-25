@@ -252,6 +252,79 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Редактировать направление с сохранением связанных групп",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID направления",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Код, название и псевдоним (null для очистки)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/department.CreateDepartmentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/department.DepartmentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/groups/{code}": {
@@ -1363,7 +1436,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Создаёт нового пользователя с ISU, именем, фамилией и факультативным отчеством.",
+                "description": "Атомарно создаёт пользователя, пароль, роли и необязательную группу студента. Для группы нужен department_id.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1377,7 +1450,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bearer \u003cJWT\u003e",
+                        "description": "Bearer <JWT>",
                         "name": "Authorization",
                         "in": "header",
                         "required": true
@@ -1410,6 +1483,24 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
+                    },
+                    "403": {
+                        "description": "Нет прав",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Группа не найдена",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "ИСУ уже существует",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -1435,7 +1526,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bearer \u003cJWT\u003e",
+                        "description": "Bearer <JWT>",
                         "name": "Authorization",
                         "in": "header",
                         "required": true
@@ -1620,7 +1711,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bearer \u003cJWT\u003e",
+                        "description": "Bearer <JWT>",
                         "name": "Authorization",
                         "in": "header",
                         "required": true
@@ -2001,7 +2092,7 @@ const docTemplate = `{
         },
         "/api/ws": {
             "get": {
-                "description": "Establishes a WebSocket connection for real-time lecture data streaming.\n\nConnection flow:\n1. Client opens WebSocket connection to this endpoint.\n2. After connection client sends control messages to manage subscriptions.\n3. Server sends data only for lectures the client is subscribed to.\n\nClient control messages:\n- Subscribe to lecture: action=subscribe, lecture_id=\u003clecture identifier\u003e\n- Unsubscribe from lecture: action=unsubscribe, lecture_id=\u003clecture identifier\u003e\n\nSubscription rules:\n- One client may subscribe to multiple lectures.\n- Unsubscribed lectures will no longer send data.\n- If the client disconnects, all subscriptions are removed automatically.\n\nServer messages:\n- Server sends lecture data as JSON messages.\n- Message payload corresponds to data received from RabbitMQ.\n- Exact message schema depends on the physical model and may be extended in the future.\n\nFuture extensions:\n- Additional message types (errors, control events).\n- Extended payload schemas.",
+                "description": "Establishes a WebSocket connection for real-time lecture data streaming.\n\nConnection flow:\n1. Client opens WebSocket connection to this endpoint.\n2. After connection client sends control messages to manage subscriptions.\n3. Server sends data only for lectures the client is subscribed to.\n\nClient control messages:\n- Subscribe to lecture: action=subscribe, lecture_id=<lecture identifier>\n- Unsubscribe from lecture: action=unsubscribe, lecture_id=<lecture identifier>\n\nSubscription rules:\n- One client may subscribe to multiple lectures.\n- Unsubscribed lectures will no longer send data.\n- If the client disconnects, all subscriptions are removed automatically.\n\nServer messages:\n- Server sends lecture data as JSON messages.\n- Message payload corresponds to data received from RabbitMQ.\n- Exact message schema depends on the physical model and may be extended in the future.\n\nFuture extensions:\n- Additional message types (errors, control events).\n- Extended payload schemas.",
                 "produces": [
                     "application/json"
                 ],
@@ -2014,6 +2105,82 @@ const docTemplate = `{
                         "description": "Switching Protocols",
                         "schema": {
                             "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/visits/teacher/{subject_id}/report": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Только свои начавшиеся лекции и текущий состав привязанных групп. Все строки периода без обрезки; для слишком большого отчёта возвращается 400.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "Полный отчёт по посещаемости лекций преподавателя",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Предмет",
+                        "name": "subject_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Начало периода, RFC3339 или YYYY-MM-DD; по умолчанию 90 дней назад",
+                        "name": "date_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Конец периода: дата включительно, RFC3339 исключительно; по умолчанию сейчас",
+                        "name": "date_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Допустимый разрыв между отметками: 5–600 секунд, по умолчанию 180",
+                        "name": "gap_seconds",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/visits.TeacherReport"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
                         }
                     }
                 }
@@ -2357,6 +2524,12 @@ const docTemplate = `{
                 "password"
             ],
             "properties": {
+                "department_id": {
+                    "type": "integer"
+                },
+                "group_code": {
+                    "type": "string"
+                },
                 "isu": {
                     "type": "string"
                 },
@@ -2371,6 +2544,12 @@ const docTemplate = `{
                 },
                 "patronymic": {
                     "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -2580,6 +2759,69 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "lecture_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "visits.TeacherReport": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/visits.AttendanceRow"
+                    }
+                },
+                "lectures": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/visits.ReportLecture"
+                    }
+                }
+            }
+        },
+        "visits.ReportLecture": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "lecture_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "visits.AttendanceRow": {
+            "type": "object",
+            "properties": {
+                "detection_count": {
+                    "type": "integer"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "group_code": {
+                    "type": "string"
+                },
+                "isu": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "lecture_id": {
+                    "type": "integer"
+                },
+                "patronymic": {
+                    "type": "string"
+                },
+                "present_seconds": {
                     "type": "integer"
                 }
             }

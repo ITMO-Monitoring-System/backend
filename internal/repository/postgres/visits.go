@@ -9,6 +9,7 @@ import (
 )
 
 type LectureVisitRepository interface {
+	GetTeacherReport(ctx context.Context, teacherISU string, subjectID int64, filter visits.TeacherReportFilter) (visits.TeacherReport, error)
 	Add(ctx context.Context, v domain.LectureVisit) (*domain.User, error)
 	Exists(ctx context.Context, lectureID int64, userID string) (bool, error)
 	ListByLecture(ctx context.Context, lectureID int64) ([]domain.LectureVisit, error)

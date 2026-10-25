@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"monitoring_backend/internal/domain"
 	deptdto "monitoring_backend/internal/http/handlers/department"
@@ -57,6 +59,28 @@ func (s *DepartmentService) Create(ctx context.Context, req deptdto.CreateDepart
 		return deptdto.DepartmentResponse{}, err
 	}
 	return mapDepartment(created), nil
+}
+
+func (s *DepartmentService) Update(ctx context.Context, id int64, req deptdto.CreateDepartmentRequest) (deptdto.DepartmentResponse, error) {
+	req.Code, req.Name = strings.TrimSpace(req.Code), strings.TrimSpace(req.Name)
+	if id <= 0 || req.Code == "" || req.Name == "" || len([]rune(req.Code)) > 125 || len([]rune(req.Name)) > 125 {
+		return deptdto.DepartmentResponse{}, fmt.Errorf("%w: Код и название обязательны, не более 125 символов", domain.ErrInvalidInput)
+	}
+	if req.Alias != nil {
+		alias := strings.TrimSpace(*req.Alias)
+		if len([]rune(alias)) > 125 {
+			return deptdto.DepartmentResponse{}, fmt.Errorf("%w: Псевдоним длиннее 125 символов", domain.ErrInvalidInput)
+		}
+		req.Alias = &alias
+		if alias == "" {
+			req.Alias = nil
+		}
+	}
+	d, err := s.repo.Update(ctx, domain.Department{ID: id, Code: req.Code, Name: req.Name, Alias: req.Alias})
+	if err != nil {
+		return deptdto.DepartmentResponse{}, err
+	}
+	return mapDepartment(d), nil
 }
 
 func (s *DepartmentService) Delete(ctx context.Context, id int64) error {

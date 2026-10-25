@@ -51,6 +51,45 @@ func (u *userRepository) Create(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
+// CreateWithAccess commits the account only when credentials, roles and group are all valid.
+func (u *userRepository) CreateWithAccess(ctx context.Context, user domain.User, passwordHash string, departmentID *int64) error {
+	tx, err := u.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if user.GroupCode != nil {
+		var actualDepartment int64
+		err := tx.QueryRow(ctx, `SELECT department_id FROM universities_data.groups WHERE code = $1 FOR SHARE`, *user.GroupCode).Scan(&actualDepartment)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrGroupNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if departmentID == nil || actualDepartment != *departmentID {
+			return fmt.Errorf("%w: Группа не принадлежит выбранному направлению", domain.ErrInvalidInput)
+		}
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO cores.users (isu, first_name, last_name, patronymic) VALUES ($1, $2, $3, $4)`, user.ISU, user.FirstName, user.LastName, user.Patronymic); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO cores.users_passwords (isu, password) VALUES ($1, $2)`, user.ISU, passwordHash); err != nil {
+		return err
+	}
+	for _, role := range user.Roles {
+		if _, err = tx.Exec(ctx, `INSERT INTO cores.users_roles (isu, role) VALUES ($1, $2)`, user.ISU, role); err != nil {
+			return err
+		}
+	}
+	if user.GroupCode != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO universities_data.students_groups (user_id, group_code) VALUES ($1, $2)`, user.ISU, *user.GroupCode); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
 func (u *userRepository) AddFaceEmbeddings(ctx context.Context, user *domain.UserFaces) (err error) {
 	tx, err := u.db.Begin(ctx)
 	if err != nil {

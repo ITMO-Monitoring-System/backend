@@ -12,6 +12,7 @@ type DepartmentRepository interface {
 	GetByCode(ctx context.Context, code string) (domain.Department, error)
 	List(ctx context.Context, limit, offset int) (*domain.Departments, error)
 	Create(ctx context.Context, d domain.Department) (domain.Department, error)
+	Update(ctx context.Context, d domain.Department) (domain.Department, error)
 	Delete(ctx context.Context, id int64) error
 }
 

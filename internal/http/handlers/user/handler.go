@@ -42,7 +42,7 @@ func NewUserHandler(userService UserService) *UserHandler {
 
 // AddUser godoc
 // @Summary      Добавление нового пользователя
-// @Description  Создаёт нового пользователя с ISU, именем, фамилией и факультативным отчеством.
+// @Description  Атомарно создаёт пользователя, пароль, роли и необязательную группу студента. Для группы нужен department_id.
 // @Tags         users
 // @Accept       json
 // @Produce      json
@@ -50,13 +50,14 @@ func NewUserHandler(userService UserService) *UserHandler {
 // @Param        user  body      AddUserRequest  true  "Пользователь для добавления"
 // @Success      201   {string}  string               "ok"
 // @Failure      400   {object}  response.ErrorResponse      "Некорректный JSON или обязательные поля отсутствуют"
+// @Failure      403,404,409 {object} response.ErrorResponse "Нет прав, группа не найдена или ИСУ уже существует"
 // @Failure      500   {object}  response.ErrorResponse      "Ошибка сервиса при добавлении пользователя"
 // @Security     BearerAuth
 // @Router       /api/user/admin/create [post]
 func (h *UserHandler) AddUser(w http.ResponseWriter, r *http.Request) {
 	role, ok := middleware.Role(r.Context())
 	if !ok || role != "admin" {
-		response.WriteError(w, http.StatusBadRequest, "Invalid role")
+		response.WriteError(w, http.StatusForbidden, "admin only")
 		return
 	}
 
@@ -64,10 +65,11 @@ func (h *UserHandler) AddUser(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		response.WriteError(w, http.StatusBadRequest, "invalid request body")
+		return
 	}
 
 	if err := h.userService.AddUser(r.Context(), request); err != nil {
-		response.WriteError(w, http.StatusInternalServerError, err.Error())
+		httputil.WriteServiceError(w, err)
 		return
 	}
 
