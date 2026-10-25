@@ -1,0 +1,41 @@
+name: Server gateway config
+
+on:
+  pull_request:
+    paths:
+      - 'deploy/server/**'
+      - '.github/workflows/server-config.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/server/**'
+      - '.github/workflows/server-config.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  gateway:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Validate production Compose
+        env:
+          POSTGRES_IMAGE: postgres:17-alpine
+          RABBITMQ_IMAGE: rabbitmq:3.13-management
+          REDIS_IMAGE: redis:7-alpine
+          MIGRATE_IMAGE: migrate/migrate:v4.18.3
+          BACKEND_IMAGE: example/backend:main
+          FRONTEND_IMAGE: example/frontend:main
+          FACE_TRACKING_IMAGE: example/tracking:main
+          FACE_RECOGNIZING_IMAGE: example/recognizing:main
+          POSTGRES_PASSWORD: test
+          CROPS_PASSWORD: test
+          RESULTS_PASSWORD: test
+          RELEASE_DIR: /tmp
+        run: docker compose -f deploy/server/compose.yaml config --quiet
+      - name: Test gateway after upstream IP changes
+        run: bash deploy/server/tests/test-nginx-dns.sh

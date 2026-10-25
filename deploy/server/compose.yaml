@@ -188,9 +188,9 @@ services:
     volumes:
       - ${RELEASE_DIR:?Run manage.py deploy}/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
-      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1/fizon/"]
+      test: [CMD-SHELL, "wget -q -T 5 -O /dev/null http://127.0.0.1/fizon/ && wget -q -T 5 -O /dev/null http://127.0.0.1/api/health && wget -q -T 5 -O /dev/null http://127.0.0.1/tracking/health"]
       interval: 10s
-      timeout: 5s
+      timeout: 20s
       retries: 12
 
 volumes:
