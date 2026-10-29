@@ -33,6 +33,7 @@ jobs:
           cache-dependency-path: go.sum
       - run: go mod download
       - run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/backend ./cmd/api
+      - run: go test ./internal/http/middleware ./internal/rabbit ./internal/ws ./internal/lecture
 
   image:
     name: Build and verify image

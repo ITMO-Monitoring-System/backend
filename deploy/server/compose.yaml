@@ -2,6 +2,10 @@ name: itmo-monitoring
 
 services:
   db:
+    logging:
+      driver: journald
+      options:
+        tag: itmo-monitoring/db
     image: ${POSTGRES_IMAGE:?Run manage.py deploy}
     restart: unless-stopped
     environment:
@@ -17,6 +21,10 @@ services:
       retries: 24
 
   rabbitmq-crops:
+    logging:
+      driver: journald
+      options:
+        tag: itmo-monitoring/rabbitmq-crops
     image: ${RABBITMQ_IMAGE:?Run manage.py deploy}
     hostname: itmo-rabbitmq-crops
     restart: unless-stopped
@@ -35,6 +43,10 @@ services:
       retries: 18
 
   rabbitmq-results:
+    logging:
+      driver: journald
+      options:
+        tag: itmo-monitoring/rabbitmq-results
     image: ${RABBITMQ_IMAGE:?Run manage.py deploy}
     hostname: itmo-rabbitmq-results
     restart: unless-stopped
@@ -53,6 +65,10 @@ services:
       retries: 18
 
   redis:
+    logging:
+      driver: journald
+      options:
+        tag: itmo-monitoring/redis
     image: ${REDIS_IMAGE:?Run manage.py deploy}
     restart: unless-stopped
     command: [redis-server, --appendonly, "yes"]
@@ -65,6 +81,10 @@ services:
       retries: 24
 
   migrate:
+    logging:
+      driver: journald
+      options:
+        tag: itmo-monitoring/migrate
     image: ${MIGRATE_IMAGE:?Run manage.py deploy}
     profiles: [tools]
     restart: "no"
@@ -76,6 +96,10 @@ services:
       - up
 
   model-preload:
+    logging:
+      driver: journald
+      options:
+        tag: itmo-monitoring/model-preload
     image: ${FACE_RECOGNIZING_IMAGE:?Run manage.py deploy}
     profiles: [tools]
     restart: "no"
@@ -93,6 +117,10 @@ services:
       - /opt/itmo-monitoring/models:/root/.insightface
 
   backend:
+    logging:
+      driver: journald
+      options:
+        tag: itmo-monitoring/backend
     image: ${BACKEND_IMAGE:?Run manage.py deploy}
     restart: unless-stopped
     depends_on:
@@ -110,6 +138,10 @@ services:
       retries: 12
 
   face_recognizing:
+    logging:
+      driver: journald
+      options:
+        tag: itmo-monitoring/face_recognizing
     image: ${FACE_RECOGNIZING_IMAGE:?Run manage.py deploy}
     restart: unless-stopped
     depends_on:
@@ -140,12 +172,17 @@ services:
       start_period: 60s
 
   face_tracking:
+    logging:
+      driver: journald
+      options:
+        tag: itmo-monitoring/face_tracking
     image: ${FACE_TRACKING_IMAGE:?Run manage.py deploy}
     restart: unless-stopped
     depends_on:
       face_recognizing: {condition: service_healthy}
       rabbitmq-crops: {condition: service_healthy}
     environment:
+      LECTURE_LOGGING_SOCKET: /run/lecture-log-control/control.sock
       CAMERA_SOURCE: none
       RABBITMQ_URL: amqp://tracking:${CROPS_PASSWORD}@face_tracking_rabbitmq:5672/
       CONNECT_SERVICE_IN_AMQP_URL: amqp://tracking:${CROPS_PASSWORD}@face_tracking_rabbitmq:5672/
@@ -170,6 +207,8 @@ services:
       FACE_TOP_EXTRA_RATIO: "0.60"
       FACE_BOTTOM_EXTRA_RATIO: "0.25"
       FACE_CROP_MAKE_SQUARE: "true"
+    volumes:
+      - /opt/itmo-monitoring/lecture-log-control:/run/lecture-log-control:ro
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
       interval: 10s
@@ -177,6 +216,10 @@ services:
       retries: 18
 
   frontend:
+    logging:
+      driver: journald
+      options:
+        tag: itmo-monitoring/frontend
     image: ${FRONTEND_IMAGE:?Run manage.py deploy}
     restart: unless-stopped
     depends_on:

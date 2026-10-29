@@ -1,0 +1,22 @@
+[Unit]
+Description=ITMO lecture journal collector
+After=systemd-journald.service docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=itmo-deploy
+Group=itmo-deploy
+SupplementaryGroups=systemd-journal
+WorkingDirectory=/opt/itmo-monitoring/deploy
+ExecStart=/usr/bin/python3 /opt/itmo-monitoring/deploy/lecture_logs.py --config /opt/itmo-monitoring/deploy/lecture-logs.json serve
+Restart=always
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/itmo-monitoring/lecture-logs /opt/itmo-monitoring/lecture-log-control
+
+[Install]
+WantedBy=multi-user.target

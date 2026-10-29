@@ -3,7 +3,8 @@ package ws
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"sync"
@@ -144,9 +145,11 @@ func (h *Hub) Broadcast(lectureID int64, data []byte) {
 	request := struct {
 		LectureID int64  `json:"lecture_id"`
 		PersonID  string `json:"person_id"`
+		RequestID string `json:"request_id"`
 	}{}
 
 	if err := json.Unmarshal(data, &request); err != nil {
+		slog.Warn("recognition_invalid", "service", "backend", "event", "recognition_invalid", "lecture_id", lectureID)
 		return
 	}
 
@@ -154,12 +157,14 @@ func (h *Hub) Broadcast(lectureID int64, data []byte) {
 	// падал на FK-ограничении в visits.lectures_visiting. Просто выходим — это
 	// нормальный сигнал, не ошибка.
 	if request.PersonID == "" {
+		slog.Info("recognition_ignored", "service", "backend", "event", "recognition_ignored", "lecture_id", lectureID, "request_id", request.RequestID, "outcome", "no_match")
 		return
 	}
 
 	// Dedup: если этот же студент уже отмечен в текущем окне — пропускаем INSERT
 	// и не рассылаем повторное событие. lastSeen скользит дальше.
 	if h.shouldDedup(request.LectureID, request.PersonID) {
+		slog.Info("visit_deduplicated", "service", "backend", "event", "visit_deduplicated", "lecture_id", lectureID, "request_id", request.RequestID)
 		return
 	}
 
@@ -181,9 +186,10 @@ func (h *Hub) Broadcast(lectureID int64, data []byte) {
 
 		user, err := h.serv.AddUserVisitsLecture(ctx, request.PersonID, request.LectureID)
 		if err != nil {
-			log.Printf("ERROR: apply time of visit for %s - %v", request.PersonID, err)
+			slog.Error("visit_write_failed", "service", "backend", "event", "visit_write_failed", "lecture_id", lectureID, "request_id", request.RequestID, "error_type", fmt.Sprintf("%T", err))
 			return
 		}
+		slog.Info("visit_written", "service", "backend", "event", "visit_written", "lecture_id", lectureID, "request_id", request.RequestID)
 
 		payload, err := json.Marshal(user)
 		if err != nil {
@@ -195,8 +201,9 @@ func (h *Hub) Broadcast(lectureID int64, data []byte) {
 			// зависший подписчик не блокировал рассылку остальным.
 			select {
 			case c.send <- payload:
+				slog.Info("ws_message_queued", "service", "backend", "event", "ws_message_queued", "lecture_id", lectureID, "request_id", request.RequestID)
 			default:
-				log.Printf("WARN: ws client %s buffer full, dropping message", c.conn.RemoteAddr().String())
+				slog.Warn("ws_message_dropped", "service", "backend", "event", "ws_message_dropped", "lecture_id", lectureID, "request_id", request.RequestID)
 			}
 		}
 	}()
