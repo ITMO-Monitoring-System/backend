@@ -3,7 +3,7 @@ package lecture
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"monitoring_backend/internal/http/response"
 	"net/http"
 	"strings"
@@ -72,7 +72,7 @@ func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 
 	m.mu.Unlock()
 
-	log.Printf("starting rabbit consumer (lecture_id=%d queue=%s)", req.LectureID, req.Queue)
+	slog.Info("lecture_consumer_started", "service", "backend", "event", "lecture_consumer_started", "lecture_id", req.LectureID, "queue", req.Queue)
 	go rabbit.StartConsumer(ctx, m.amqpURL, req.Queue, req.LectureID, m.hub)
 
 	response.WriteJSON(w, http.StatusOK, "Consumer started")
@@ -108,6 +108,7 @@ func (m *Manager) StopLecture(w http.ResponseWriter, r *http.Request) {
 	m.running[req.LectureID]()
 	delete(m.running, req.LectureID)
 	delete(m.started, req.LectureID)
+	slog.Info("lecture_consumer_stopped", "service", "backend", "event", "lecture_consumer_stopped", "lecture_id", req.LectureID)
 
 	response.WriteJSON(w, http.StatusOK, "ok")
 }

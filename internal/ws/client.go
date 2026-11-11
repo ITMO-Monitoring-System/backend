@@ -2,7 +2,7 @@ package ws
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"strconv"
 
 	"github.com/gorilla/websocket"
@@ -33,7 +33,6 @@ func (c *Client) Read() {
 		if err != nil {
 			return
 		}
-		log.Printf("INFO: recv from conn: %s", msg)
 
 		var cmd struct {
 			Action    string `json:"action"`
@@ -46,18 +45,18 @@ func (c *Client) Read() {
 
 		lectureID, err := strconv.ParseInt(cmd.LectureID, 10, 64)
 		if err != nil {
-			log.Printf("WARN: failed to parse lecture id from conn: %s", cmd.LectureID)
+			slog.Warn("ws_invalid_lecture_id", "service", "backend", "event", "ws_invalid_lecture_id")
 			continue
 		}
 
 		if cmd.Action == "subscribe" {
 			c.hub.Subscribe(c, lectureID)
-			log.Println("INFO: subscribed", cmd.LectureID)
+			slog.Info("ws_subscribed", "service", "backend", "event", "ws_subscribed", "lecture_id", lectureID)
 		}
 
 		if cmd.Action == "unsubscribe" {
 			c.hub.Unsubscribe(c, lectureID)
-			log.Println("INFO: unsubscribed", cmd.LectureID)
+			slog.Info("ws_unsubscribed", "service", "backend", "event", "ws_unsubscribed", "lecture_id", lectureID)
 		}
 	}
 }

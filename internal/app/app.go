@@ -108,7 +108,8 @@ func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App 
 		JWTManager: jwtManager,
 	})
 
-	handler := middleware.NewLoggingMiddleware(r)
+	r.Use(middleware.NewLoggingMiddleware)
+	var handler http.Handler = r
 
 	// создаём конфиг CORS
 	corsMiddleware := middleware.NewCORS(middleware.CORSConfig{

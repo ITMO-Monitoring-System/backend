@@ -51,6 +51,13 @@ await_response() {
 
 await_response /api/health backend-old
 await_response /tracking/health tracking-old
+docker exec "$gateway" wget -q -T 2 -O /dev/null \
+  'http://127.0.0.1/api/users/123?token=private' 2>/dev/null || true
+access="$(docker logs "$gateway" 2>&1)"
+if [[ "$access" != *'"path":"/api/*"'* ]] || [[ "$access" == *'private'* ]] || [[ "$access" == *'/api/users/123'* ]]; then
+  echo 'Gateway access log exposed a raw path or query.' >&2
+  exit 1
+fi
 
 # Start replacements before removing the old containers so Docker assigns new IPs.
 docker run -d --network "$network" --network-alias backend --name "$backend_new" \

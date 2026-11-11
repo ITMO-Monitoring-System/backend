@@ -3,7 +3,9 @@ package rabbit
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
+	"log/slog"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -31,7 +33,7 @@ func StartConsumer(ctx context.Context, amqpURL string, queue string, lectureID 
 			log.Printf("rabbit consumer stopped (lecture_id=%d queue=%s)", lectureID, queue)
 			return
 		}
-		log.Printf("rabbit consumer error (lecture_id=%d queue=%s): %v", lectureID, queue, err)
+		slog.Warn("consumer_reconnect", "service", "backend", "event", "consumer_reconnect", "lecture_id", lectureID, "error_type", fmt.Sprintf("%T", err))
 
 		select {
 		case <-ctx.Done():
@@ -93,7 +95,11 @@ func consumeOnce(ctx context.Context, amqpURL string, queue string, lectureID in
 			if !ok {
 				return amqp.ErrClosed
 			}
-			log.Printf("rabbit consumer received message (lecture_id=%d queue=%s bytes=%d)", lectureID, queue, len(msg.Body))
+			var result struct {
+				RequestID string `json:"request_id"`
+			}
+			_ = json.Unmarshal(msg.Body, &result)
+			slog.Info("recognition_received", "service", "backend", "event", "recognition_received", "lecture_id", lectureID, "request_id", result.RequestID, "bytes", len(msg.Body))
 
 			if isLectureEnd(msg.Body) {
 				_ = msg.Ack(false)

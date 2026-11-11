@@ -7,9 +7,12 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	_ "monitoring_backend/docs"
 
@@ -28,22 +31,43 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
+	level := slog.LevelInfo
+	switch strings.ToLower(cfg.Logger.Level) {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn", "warning":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	}
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: level,
+		ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
+			if attr.Key == slog.TimeKey {
+				return slog.String("timestamp", attr.Value.Time().UTC().Format(time.RFC3339Nano))
+			}
+			if attr.Key == slog.LevelKey {
+				return slog.String("level", strings.ToLower(attr.Value.String()))
+			}
+			return attr
+		},
+	})))
 
 	poolCfg, err := pgxpool.ParseConfig(cfg.Postgres.DSN())
 	if err != nil {
-		log.Fatalf("failed to parse postgres dsn: %v", err)
+		log.Fatalf("failed to parse postgres dsn: %T", err)
 	}
 	if cfg.Postgres.MaxConns > 0 {
 		poolCfg.MaxConns = cfg.Postgres.MaxConns
 	}
 	db, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
-		log.Fatalf("failed to connect postgres: %v", err)
+		log.Fatalf("failed to connect postgres: %T", err)
 	}
 	defer db.Close()
 
-	if db.Ping(ctx) != nil {
-		log.Fatalf("failed to ping postgres: %v", err)
+	if err := db.Ping(ctx); err != nil {
+		log.Fatalf("failed to ping postgres: %T", err)
 	}
 
 	jwtManager := auth.NewJWTManager(cfg.JWT.Secret, cfg.JWT.TTL)

@@ -1,0 +1,10 @@
+# Project example for /etc/systemd/journald.conf.d/itmo-monitoring.conf.
+# These options affect the whole host. Inspect existing journald configuration first.
+# Persistent journal is required for recovery after host reboot.
+[Journal]
+Storage=persistent
+SystemMaxUse=4G
+SystemKeepFree=2G
+# Pilot only after measuring actual flow and host defaults. RateLimitBurst=0 disables
+# journald's per-service rate limiting, but a full disk can still lose events.
+RateLimitIntervalSec=0

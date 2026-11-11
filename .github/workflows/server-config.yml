@@ -37,5 +37,9 @@ jobs:
           RESULTS_PASSWORD: test
           RELEASE_DIR: /tmp
         run: docker compose -f deploy/server/compose.yaml config --quiet
+      - name: Check lecture collector and server scripts
+        run: |
+          python3 -m unittest discover -s deploy/server/tests -p 'test_lecture_logs.py'
+          bash -n deploy/server/install-server.sh deploy/server/upgrade-lecture-logging.sh
       - name: Test gateway after upstream IP changes
         run: bash deploy/server/tests/test-nginx-dns.sh
