@@ -164,7 +164,7 @@ func (h *Hub) Broadcast(lectureID int64, data []byte) {
 	// Dedup: если этот же студент уже отмечен в текущем окне — пропускаем INSERT
 	// и не рассылаем повторное событие. lastSeen скользит дальше.
 	if h.shouldDedup(request.LectureID, request.PersonID) {
-		slog.Info("visit_deduplicated", "service", "backend", "event", "visit_deduplicated", "lecture_id", lectureID, "request_id", request.RequestID)
+		slog.Info("visit_deduplicated", "service", "backend", "event", "visit_deduplicated", "lecture_id", lectureID, "request_id", request.RequestID, "person_id", request.PersonID)
 		return
 	}
 
@@ -184,27 +184,31 @@ func (h *Hub) Broadcast(lectureID int64, data []byte) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 		defer cancel()
 
+		writeStarted := time.Now()
 		user, err := h.serv.AddUserVisitsLecture(ctx, request.PersonID, request.LectureID)
 		if err != nil {
-			slog.Error("visit_write_failed", "service", "backend", "event", "visit_write_failed", "lecture_id", lectureID, "request_id", request.RequestID, "error_type", fmt.Sprintf("%T", err))
+			slog.Error("visit_write_failed", "service", "backend", "event", "visit_write_failed", "lecture_id", lectureID, "request_id", request.RequestID, "person_id", request.PersonID, "duration_ms", time.Since(writeStarted).Milliseconds(), "error_type", fmt.Sprintf("%T", err))
 			return
 		}
-		slog.Info("visit_written", "service", "backend", "event", "visit_written", "lecture_id", lectureID, "request_id", request.RequestID)
+		slog.Info("visit_written", "service", "backend", "event", "visit_written", "lecture_id", lectureID, "request_id", request.RequestID, "person_id", request.PersonID, "duration_ms", time.Since(writeStarted).Milliseconds())
 
 		payload, err := json.Marshal(user)
 		if err != nil {
+			slog.Error("ws_payload_failed", "service", "backend", "event", "ws_payload_failed", "lecture_id", lectureID, "request_id", request.RequestID, "person_id", request.PersonID, "error_type", fmt.Sprintf("%T", err))
 			return
 		}
 
+		queued, dropped := 0, 0
 		for _, c := range clients {
 			// Non-blocking send: если у клиента полный буфер — пропускаем, чтобы один
 			// зависший подписчик не блокировал рассылку остальным.
 			select {
 			case c.send <- payload:
-				slog.Info("ws_message_queued", "service", "backend", "event", "ws_message_queued", "lecture_id", lectureID, "request_id", request.RequestID)
+				queued++
 			default:
-				slog.Warn("ws_message_dropped", "service", "backend", "event", "ws_message_dropped", "lecture_id", lectureID, "request_id", request.RequestID)
+				dropped++
 			}
 		}
+		slog.Info("ws_fanout_summary", "service", "backend", "event", "ws_fanout_summary", "lecture_id", lectureID, "request_id", request.RequestID, "person_id", request.PersonID, "subscribers", len(clients), "queued", queued, "dropped", dropped)
 	}()
 }

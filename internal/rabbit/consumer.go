@@ -97,9 +97,10 @@ func consumeOnce(ctx context.Context, amqpURL string, queue string, lectureID in
 			}
 			var result struct {
 				RequestID string `json:"request_id"`
+				PersonID  string `json:"person_id"`
 			}
 			_ = json.Unmarshal(msg.Body, &result)
-			slog.Info("recognition_received", "service", "backend", "event", "recognition_received", "lecture_id", lectureID, "request_id", result.RequestID, "bytes", len(msg.Body))
+			slog.Info("recognition_received", "service", "backend", "event", "recognition_received", "lecture_id", lectureID, "request_id", result.RequestID, "person_id", result.PersonID, "bytes", len(msg.Body))
 
 			if isLectureEnd(msg.Body) {
 				_ = msg.Ack(false)
@@ -112,7 +113,11 @@ func consumeOnce(ctx context.Context, amqpURL string, queue string, lectureID in
 			hub.Broadcast(lectureID, msg.Body)
 
 			// Ack после успешной передачи в Hub (передача асинхронная, но это достаточный критерий для учебного проекта)
-			_ = msg.Ack(false)
+			if err := msg.Ack(false); err != nil {
+				slog.Error("recognition_ack_failed", "service", "backend", "event", "recognition_ack_failed", "lecture_id", lectureID, "request_id", result.RequestID, "person_id", result.PersonID, "error_type", fmt.Sprintf("%T", err))
+			} else {
+				slog.Info("recognition_acked", "service", "backend", "event", "recognition_acked", "lecture_id", lectureID, "request_id", result.RequestID, "person_id", result.PersonID)
+			}
 
 		case err := <-conn_closed:
 			if err != nil {
