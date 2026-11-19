@@ -3,32 +3,74 @@ package lecture
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
-	"monitoring_backend/internal/http/response"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
+	"monitoring_backend/internal/domain"
+	"monitoring_backend/internal/http/response"
 	"monitoring_backend/internal/rabbit"
 	"monitoring_backend/internal/ws"
+
+	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
 )
+
+type lectureLookup interface {
+	GetByID(context.Context, int64) (domain.Lecture, error)
+}
 
 type Manager struct {
 	mu sync.Mutex
 
-	started map[int64]bool // lecture_id → consumer started
-	running map[int64]context.CancelFunc
-	hub     *ws.Hub
-	amqpURL string
+	started  map[int64]bool // lecture_id → consumer started
+	running  map[int64]context.CancelFunc
+	hub      *ws.Hub
+	amqpURL  string
+	lectures lectureLookup
 }
 
-func NewManager(hub *ws.Hub, amqpURL string) *Manager {
+func NewManager(hub *ws.Hub, amqpURL string, lectures lectureLookup) *Manager {
 	return &Manager{
-		started: make(map[int64]bool),
-		running: make(map[int64]context.CancelFunc),
-		hub:     hub,
-		amqpURL: amqpURL,
+		started:  make(map[int64]bool),
+		running:  make(map[int64]context.CancelFunc),
+		hub:      hub,
+		amqpURL:  amqpURL,
+		lectures: lectures,
 	}
+}
+
+// CheckLecture is the internal preflight used before tracking opens an archive or queue.
+func (m *Manager) CheckLecture(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	if err != nil {
+		response.WriteError(w, http.StatusBadRequest, "invalid_lecture_id")
+		return
+	}
+	if m.validateLecture(w, r, id) {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (m *Manager) validateLecture(w http.ResponseWriter, r *http.Request, id int64) bool {
+	if id <= 0 {
+		response.WriteError(w, http.StatusBadRequest, "invalid_lecture_id")
+		return false
+	}
+	_, err := m.lectures.GetByID(r.Context(), id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		response.WriteError(w, http.StatusNotFound, "lecture_not_found")
+		return false
+	}
+	if err != nil {
+		slog.Error("lecture lookup failed", "lecture_id", id, "error", err)
+		response.WriteError(w, http.StatusServiceUnavailable, "lecture_validation_unavailable")
+		return false
+	}
+	return true
 }
 
 // StartLecture godoc
@@ -41,6 +83,7 @@ func NewManager(hub *ws.Hub, amqpURL string) *Manager {
 // @Success 202 {string} string "Consumer started"
 // @Success 200 {string} string "Consumer already running"
 // @Failure 400 {string} string "Invalid request body"
+// @Failure 404 {object} response.ErrorResponse "Lecture not found"
 // @Router /api/lecture/start [post]
 func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 
@@ -52,6 +95,9 @@ func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Queue == "" {
 		response.WriteError(w, http.StatusBadRequest, "Invalid queue name")
+		return
+	}
+	if !m.validateLecture(w, r, req.LectureID) {
 		return
 	}
 	if strings.TrimSpace(m.amqpURL) == "" {

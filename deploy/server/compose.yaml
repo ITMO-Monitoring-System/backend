@@ -183,6 +183,7 @@ services:
       rabbitmq-crops: {condition: service_healthy}
     environment:
       LECTURE_LOGGING_SOCKET: /run/lecture-log-control/control.sock
+      LECTURE_BACKEND_URL: http://backend:8080
       CAMERA_SOURCE: none
       RABBITMQ_URL: amqp://tracking:${CROPS_PASSWORD}@face_tracking_rabbitmq:5672/
       CONNECT_SERVICE_IN_AMQP_URL: amqp://tracking:${CROPS_PASSWORD}@face_tracking_rabbitmq:5672/

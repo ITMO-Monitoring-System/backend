@@ -6,6 +6,9 @@ from pathlib import Path
 import subprocess
 import sys
 
+from lecture_logs import active_lectures
+from manage import DEPLOYMENT_DEFERRED, lecture_archive_root
+
 ROOT = Path('/opt/itmo-monitoring')
 DEPLOY = ROOT / 'deploy'
 CURRENT = DEPLOY / 'current' / 'release.json'
@@ -46,6 +49,9 @@ def digest(service, repository):
 def main():
     if not CURRENT.exists():
         raise RuntimeError('Initial deployment is not complete; automatic updates were not started.')
+    if lectures := active_lectures(lecture_archive_root()):
+        print(f'Update deferred: active lectures: {", ".join(lectures)}', flush=True)
+        return
     current = json.loads(CURRENT.read_text())
     failed = json.loads(FAILED.read_text()) if FAILED.exists() else {}
     latest = {}
@@ -72,6 +78,9 @@ def main():
         try:
             run(['python3', str(MANAGER), 'deploy-service', service, image])
         except subprocess.CalledProcessError as error:
+            if error.returncode == DEPLOYMENT_DEFERRED:
+                # A lecture may start after polling, or between service deployments.
+                return
             failed[service] = {
                 'digest': image,
                 'failed_at': dt.datetime.now(dt.timezone.utc).isoformat(),

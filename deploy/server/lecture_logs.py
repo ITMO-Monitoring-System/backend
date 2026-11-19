@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime as dt
+import fcntl
 import hashlib
 import json
 import os
@@ -81,13 +82,29 @@ def config(path):
 
 @contextlib.contextmanager
 def locked(root):
-    import fcntl
-
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(root, 0o700)
     with (root / ".collector.lock").open("a") as file:
         os.fchmod(file.fileno(), 0o600)
         fcntl.flock(file, fcntl.LOCK_EX)
+        yield
+
+
+class DeploymentDeferred(RuntimeError):
+    pass
+
+
+@contextlib.contextmanager
+def deployment_lock(root, *, exclusive):
+    # A start registers its archive under a shared lock. A deploy holds the
+    # exclusive lock through all container changes, including health checks.
+    with (root / ".deployment.lock").open("a") as file:
+        os.fchmod(file.fileno(), 0o600)
+        mode = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+        try:
+            fcntl.flock(file, mode | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise DeploymentDeferred("deployment_in_progress") from error
         yield
 
 
@@ -100,6 +117,13 @@ def sessions(root):
 def read_state(path):
     state_path = path / "state.json"
     return json.loads((state_path if state_path.exists() else path / "manifest.json").read_text(encoding="utf-8"))
+
+
+def active_lectures(root):
+    # The collector lock makes the state/manifest switch atomic for this scan.
+    with locked(root):
+        return sorted({str(state["lecture_id"]) for path in sessions(root)
+                       if (state := read_state(path))["ended_at"] is None})
 
 
 def save_state(path, state):
@@ -507,6 +531,11 @@ def finalize(path, state):
 def create_session(cfg, lecture_id):
     if not re.fullmatch(r"[0-9]+", lecture_id):
         raise ValueError("lecture ID must be a nonnegative integer")
+    with deployment_lock(cfg["root"], exclusive=False):
+        return register_session(cfg, lecture_id)
+
+
+def register_session(cfg, lecture_id):
     preflight(cfg)
     now = dt.datetime.now(UTC)
     sid = uuid.uuid4().hex[:12]

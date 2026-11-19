@@ -14,10 +14,14 @@ import subprocess
 import sys
 import urllib.request
 
+from lecture_logs import DeploymentDeferred, active_lectures, config as lecture_logs_config, deployment_lock
+
 ROOT = Path('/opt/itmo-monitoring')
 DEPLOY = ROOT / 'deploy'
 CONFIG = ROOT / 'configs'
 HERE = Path(__file__).resolve().parent
+DEPLOYMENT_DEFERRED = 75
+COMPOSE_INSPECTION_COMMANDS = {'config', 'events', 'images', 'logs', 'ls', 'port', 'ps', 'top', 'version'}
 SERVICES = ['backend', 'face_recognizing', 'face_tracking', 'frontend']
 INFRA_SERVICES = ['db', 'rabbitmq-crops', 'rabbitmq-results', 'redis']
 BASE_IMAGES = {
@@ -87,6 +91,22 @@ def locked():
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise RuntimeError('Another deploy/backup/rollback is running. Wait for it.') from error
+        yield
+
+
+def lecture_archive_root():
+    root = lecture_logs_config(DEPLOY / 'lecture-logs.json')['root']
+    if not root.is_dir():
+        raise RuntimeError('Lecture archive directory is unavailable. Deployment cannot check active lectures.')
+    return root
+
+
+@contextlib.contextmanager
+def deployment_window():
+    root = lecture_archive_root()
+    with deployment_lock(root, exclusive=True):
+        if lectures := active_lectures(root):
+            raise DeploymentDeferred(f'active lectures: {", ".join(lectures)}')
         yield
 
 
@@ -223,9 +243,8 @@ def deploy(manifest):
     resolved = {name: resolve(name, value) for name, value in images.items()}
     path = DEPLOY / 'releases' / stamp()
     path.mkdir(mode=0o700)
-    shutil.copy2(HERE / 'compose.yaml', path / 'compose.yaml')
-    shutil.copy2(HERE / 'nginx.conf', path / 'nginx.conf')
-    shutil.copy2(HERE / 'manage.py', path / 'manage.py')
+    for name in ['compose.yaml', 'nginx.conf', 'manage.py', 'lecture_logs.py']:
+        shutil.copy2(HERE / name, path / name)
     write(path / 'release.json', json.dumps(resolved, indent=2) + '\n')
     write(path / 'images.env', ''.join(f'{name.upper()}_IMAGE={value}\n' for name, value in resolved.items())
           + f'RELEASE_DIR={path}\n')
@@ -237,7 +256,6 @@ def deploy(manifest):
     link('last-attempt', path)
     write(path / 'status.txt', 'IN_PROGRESS\n')
     try:
-        # Existing lectures must have been ended by the operator before deployment.
         dc(path, 'stop', '-t', '30', 'frontend', 'face_tracking', 'face_recognizing', 'backend')
         dc(path, 'up', '-d', '--wait', '--wait-timeout', '240', *INFRA_SERVICES)
         backup(path)
@@ -274,7 +292,7 @@ def deploy_service(service, image):
     images[service] = resolved_image
     path = DEPLOY / 'releases' / stamp()
     path.mkdir(mode=0o700)
-    for name in ['compose.yaml', 'nginx.conf', 'manage.py']:
+    for name in ['compose.yaml', 'nginx.conf', 'manage.py', 'lecture_logs.py']:
         shutil.copy2(HERE / name, path / name)
     write(path / 'release.json', json.dumps(images, indent=2) + '\n')
     write(path / 'images.env', ''.join(f'{name.upper()}_IMAGE={value}\n' for name, value in images.items())
@@ -344,13 +362,18 @@ def main():
         validate(args.manifest)
         print('Release manifest format OK (registry access is checked during deploy).')
         return
-    if args.command in ['init', 'deploy', 'deploy-service', 'backup', 'rollback']:
+    if args.command in ('deploy', 'deploy-service', 'rollback'):
+        with locked(), deployment_window():
+            if args.command == 'deploy':
+                deploy(args.manifest)
+            elif args.command == 'deploy-service':
+                deploy_service(args.service, args.image)
+            else:
+                rollback()
+    elif args.command in ('init', 'backup'):
         with locked():
             if args.command == 'init': init()
-            elif args.command == 'deploy': deploy(args.manifest)
-            elif args.command == 'deploy-service': deploy_service(args.service, args.image)
-            elif args.command == 'backup': backup(release_path())
-            else: rollback()
+            else: backup(release_path())
     elif args.command == 'check': check(release_path())
     elif args.command == 'status':
         path = release_path()
@@ -359,12 +382,19 @@ def main():
     else:
         if not args.args:
             raise RuntimeError('Specify Compose arguments, e.g. compose logs --tail 100 backend')
-        dc(release_path(), *args.args)
+        if args.args[0] in COMPOSE_INSPECTION_COMMANDS:
+            dc(release_path(), *args.args)
+        else:
+            with locked(), deployment_window():
+                dc(release_path(), *args.args)
 
 
 if __name__ == '__main__':
     try:
         main()
+    except DeploymentDeferred as error:
+        print(f'Deployment deferred: {error}', file=sys.stderr)
+        sys.exit(DEPLOYMENT_DEFERRED)
     except (RuntimeError, OSError, ValueError, subprocess.CalledProcessError) as error:
         # Avoid echoing failed command arguments: migration connection strings contain secrets.
         if isinstance(error, subprocess.CalledProcessError):

@@ -151,6 +151,21 @@ for event in events:
         self.assertEqual(ll.read_state(path1)["state"], "partial")
         self.assertEqual(ll.read_state(path2)["state"], "active")
 
+    def test_deployment_and_new_lecture_cannot_start_together(self):
+        root = self.cfg["root"]
+        request = {"action": "start", "lecture_id": "12"}
+        with ll.deployment_lock(root, exclusive=True):
+            with self.assertRaisesRegex(ll.DeploymentDeferred, "deployment_in_progress"):
+                ll.control(self.cfg, request)
+            self.assertEqual(list(ll.sessions(root)), [])
+
+        ll.control(self.cfg, request)
+        ll.control(self.cfg, {"action": "start", "lecture_id": "123"})
+        ll.control(self.cfg, {"action": "stop", "lecture_id": "12"})
+        self.assertEqual(ll.active_lectures(root), ["123"])
+        ll.control(self.cfg, {"action": "stop", "lecture_id": "123"})
+        self.assertEqual(ll.active_lectures(root), [])
+
     def test_recover_marks_interruption(self):
         path, _ = self.begin(12)
         with contextlib.redirect_stdout(io.StringIO()):

@@ -24,11 +24,15 @@ restore_timer() {
   fi
 }
 trap restore_timer EXIT
+if systemctl is-active --quiet itmo-update.service; then
+  echo 'Wait for the running update to finish before installing the new deployment scripts.' >&2
+  exit 1
+fi
 install -d -o itmo-deploy -g itmo-deploy -m 0700 "$project_dir/lecture-logs"
 install -d -o itmo-deploy -g itmo-deploy -m 0700 "$project_dir/lecture-log-control"
 backup_dir="$project_dir/backups/lecture-logging-$(date -u +%Y%m%dT%H%M%SZ)"
 install -d -o itmo-deploy -g itmo-deploy -m 0700 "$backup_dir"
-for name in compose.yaml nginx.conf; do
+for name in compose.yaml nginx.conf manage.py watch_updates.py; do
   if [ -e "$project_dir/deploy/$name" ]; then
     cp -p "$project_dir/deploy/$name" "$backup_dir/$name"
   fi
