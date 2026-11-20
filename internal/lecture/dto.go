@@ -2,9 +2,11 @@ package lecture
 
 type StartLectureRequest struct {
 	LectureID int64  `json:"lecture_id"`
+	RunID     string `json:"run_id"`
 	Queue     string `json:"queue"`
 }
 
 type StopLectureRequest struct {
-	LectureID int64 `json:"lecture_id"`
+	LectureID int64  `json:"lecture_id"`
+	RunID     string `json:"run_id"`
 }

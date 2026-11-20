@@ -21,53 +21,54 @@ func NewLectureVisitsRepository(db *pgxpool.Pool) *lectureVisitsRepository {
 	}
 }
 
-func (v *lectureVisitsRepository) Add(ctx context.Context, visit domain.LectureVisit) (user *domain.User, err error) {
+// Add returns a nil user for an observation that was already committed.
+func (v *lectureVisitsRepository) Add(ctx context.Context, visit domain.LectureVisit) (*domain.User, error) {
 	tx, err := v.db.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if p := recover(); p != nil {
-			_ = tx.Rollback(ctx)
-		} else if err != nil {
-			_ = tx.Rollback(ctx)
-		} else {
-			err = tx.Commit(ctx)
+	defer tx.Rollback(ctx)
+
+	if visit.RunID == "" {
+		_, err = tx.Exec(ctx, `INSERT INTO visits.lectures_visiting (lecture_id, user_id, date)
+			VALUES ($1, $2, $3)`, visit.LectureID, visit.UserID, visit.Date)
+	} else {
+		// A duplicate request leaves the entire transaction unchanged, including
+		// the visit that may have been tentatively created for a different user.
+		_, err = tx.Exec(ctx, `INSERT INTO visits.lectures_visiting (lecture_id, user_id, date, run_id)
+			VALUES ($1, $2, $3, $4) ON CONFLICT (run_id, user_id) DO NOTHING`,
+			visit.LectureID, visit.UserID, visit.Date, visit.RunID)
+		if err == nil {
+			result, insertErr := tx.Exec(ctx, `INSERT INTO visits.lecture_observations (run_id, user_id, request_id, observed_at)
+				VALUES ($1, $2, $3, $4) ON CONFLICT (run_id, request_id) DO NOTHING`,
+				visit.RunID, visit.UserID, visit.RequestID, visit.Date)
+			if insertErr != nil || result.RowsAffected() == 0 {
+				return nil, insertErr
+			}
+			_, err = tx.Exec(ctx, `UPDATE visits.lectures_visiting
+				SET date = $1 WHERE run_id = $2 AND user_id = $3 AND date > $1`,
+				visit.Date, visit.RunID, visit.UserID)
 		}
-	}()
-
-	const insertQuery = `
-		INSERT INTO
-			visits.lectures_visiting(lecture_id, user_id, date) 
-		VALUES($1, $2, $3);
-	`
-
-	_, err = tx.Exec(ctx, insertQuery, visit.LectureID, visit.UserID, visit.Date.Format(time.RFC3339))
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	user = &domain.User{
-		ISU: visit.UserID,
-	}
-
+	user := &domain.User{ISU: visit.UserID}
 	const selectQuery = `
-		SELECT
-			u.last_name,
-			u.first_name,
-			u.patronymic,
-			sg.group_code
+		SELECT u.last_name, u.first_name, u.patronymic, sg.group_code
 		FROM cores.users u
-		JOIN universities_data.students_groups sg on u.isu = sg.user_id
+		LEFT JOIN universities_data.students_groups sg ON sg.user_id = u.isu
 		WHERE u.isu = $1
-		LIMIT 1;
 	`
-
-	err = tx.QueryRow(ctx, selectQuery, user.ISU).Scan(&user.LastName, &user.FirstName, &user.Patronymic, &user.GroupCode)
+	err = tx.QueryRow(ctx, selectQuery, user.ISU).Scan(
+		&user.LastName, &user.FirstName, &user.Patronymic, &user.GroupCode)
 	if err != nil {
 		return nil, err
 	}
-
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
 	return user, nil
 }
 
@@ -162,9 +163,9 @@ func (r *lectureVisitsRepository) ListStudentLecturesBySubject(ctx context.Conte
 		WITH snaps AS (
 			SELECT
 				lv.lecture_id,
-				lv.date AS snap_time,
-				LEAD(lv.date) OVER (PARTITION BY lv.lecture_id ORDER BY lv.date) AS next_time
-			FROM visits.lectures_visiting lv
+				lv.observed_at AS snap_time,
+				LEAD(lv.observed_at) OVER (PARTITION BY lv.lecture_id, lv.run_id ORDER BY lv.observed_at) AS next_time
+			FROM visits.lecture_observation_history lv
 			JOIN universities_data.lectures l ON l.id = lv.lecture_id
 			WHERE lv.user_id = $1
 			  AND l.subject_id = $2
@@ -355,9 +356,9 @@ func (r *lectureVisitsRepository) ListLectureGroupStudents(
 		snaps AS (
 			SELECT
 				lv.user_id,
-				lv.date AS snap_time,
-				LEAD(lv.date) OVER (PARTITION BY lv.user_id ORDER BY lv.date) AS next_time
-			FROM visits.lectures_visiting lv
+				lv.observed_at AS snap_time,
+				LEAD(lv.observed_at) OVER (PARTITION BY lv.user_id, lv.run_id ORDER BY lv.observed_at) AS next_time
+			FROM visits.lecture_observation_history lv
 			JOIN group_students gs ON gs.user_id = lv.user_id
 			WHERE lv.lecture_id = $2
 		),

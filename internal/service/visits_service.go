@@ -8,7 +8,6 @@ import (
 	"monitoring_backend/internal/repository/postgres"
 	"monitoring_backend/internal/ws"
 	"strings"
-	"time"
 )
 
 type visitService struct {
@@ -19,14 +18,16 @@ func NewVisitService(repo postgres.LectureVisitRepository) *visitService {
 	return &visitService{repo: repo}
 }
 
-func (v *visitService) AddUserVisitsLecture(ctx context.Context, userID string, lectureID int64) (*ws.UserVisitsLectureResponse, error) {
-	user, err := v.repo.Add(ctx, domain.LectureVisit{UserID: userID, LectureID: lectureID, Date: time.Now()})
-	if err != nil {
+func (v *visitService) AddUserVisitsLecture(ctx context.Context, visit domain.LectureVisit) (*ws.UserVisitsLectureResponse, error) {
+	user, err := v.repo.Add(ctx, visit)
+	if err != nil || user == nil {
 		return nil, err
 	}
 
 	response := ws.UserVisitsLectureResponse{
-		LectureID: lectureID,
+		LectureID:  visit.LectureID,
+		RunID:      visit.RunID,
+		ObservedAt: visit.Date,
 		User: ws.UserResponse{
 			ISU:        user.ISU,
 			Name:       user.FirstName,

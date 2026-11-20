@@ -5,53 +5,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
-	"strconv"
 	"sync"
 	"time"
+
+	"monitoring_backend/internal/domain"
 )
 
 type VisitsService interface {
-	AddUserVisitsLecture(ctx context.Context, userID string, lectureID int64) (*UserVisitsLectureResponse, error)
-}
-
-type lectureUserKey struct {
-	lectureID int64
-	userID    string
-}
-
-// dedupWindow — окно дедупликации одного и того же (lecture_id, user_id).
-// Если в течение окна пришло повторное распознавание — INSERT и broadcast пропускаются.
-// Управляется env VISITS_DEDUP_WINDOW_SEC (по умолчанию 60). 0 = выключить.
-func dedupWindow() time.Duration {
-	v := os.Getenv("VISITS_DEDUP_WINDOW_SEC")
-	if v == "" {
-		return 60 * time.Second
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil || n < 0 {
-		return 60 * time.Second
-	}
-	return time.Duration(n) * time.Second
+	AddUserVisitsLecture(context.Context, domain.LectureVisit) (*UserVisitsLectureResponse, error)
 }
 
 type Hub struct {
-	mu   sync.Mutex
-	serv VisitsService
-	// lecture_id → clients
+	mu       sync.Mutex
+	serv     VisitsService
 	lectures map[int64]map[*Client]bool
-
-	dedupMu     sync.Mutex
-	lastSeen    map[lectureUserKey]time.Time
-	dedupWindow time.Duration
 }
 
 func NewHub(serv VisitsService) *Hub {
 	return &Hub{
-		lectures:    make(map[int64]map[*Client]bool),
-		serv:        serv,
-		lastSeen:    make(map[lectureUserKey]time.Time),
-		dedupWindow: dedupWindow(),
+		lectures: make(map[int64]map[*Client]bool),
+		serv:     serv,
 	}
 }
 
@@ -88,127 +61,43 @@ func (h *Hub) Unsubscribe(c *Client, lectureID int64) {
 	}
 }
 
-// shouldDedup возвращает true, если этот (lecture_id, user_id) уже отмечался
-// внутри окна дедупликации. При false дополнительно обновляет lastSeen.
-func (h *Hub) shouldDedup(lectureID int64, userID string) bool {
-	if h.dedupWindow <= 0 || userID == "" {
-		return false
+// RecordObservation commits the visit before notifying WebSocket subscribers.
+func (h *Hub) RecordObservation(ctx context.Context, visit domain.LectureVisit) error {
+	start := time.Now()
+	user, err := h.serv.AddUserVisitsLecture(ctx, visit)
+	if err != nil {
+		slog.Error("visit_write_failed", "service", "backend", "event", "visit_write_failed",
+			"lecture_id", visit.LectureID, "run_id", visit.RunID, "request_id", visit.RequestID, "error_type", fmt.Sprintf("%T", err))
+		return err
 	}
-	key := lectureUserKey{lectureID: lectureID, userID: userID}
-	now := time.Now()
-	h.dedupMu.Lock()
-	defer h.dedupMu.Unlock()
-	if ts, ok := h.lastSeen[key]; ok && now.Sub(ts) < h.dedupWindow {
-		// Обновляем lastSeen, чтобы окно "скользило" пока человек продолжает видеться.
-		h.lastSeen[key] = now
-		return true
+	if user == nil {
+		slog.Info("visit_deduplicated", "service", "backend", "event", "visit_deduplicated",
+			"lecture_id", visit.LectureID, "run_id", visit.RunID, "request_id", visit.RequestID)
+		return nil
 	}
-	h.lastSeen[key] = now
-	return false
-}
+	slog.Info("visit_written", "service", "backend", "event", "visit_written", "lecture_id", visit.LectureID,
+		"run_id", visit.RunID, "request_id", visit.RequestID, "person_id", visit.UserID, "duration_ms", time.Since(start).Milliseconds())
 
-// pruneDedup чистит lastSeen от записей старше окна — вызывается периодически из background-горутины.
-func (h *Hub) pruneDedup() {
-	if h.dedupWindow <= 0 {
-		return
-	}
-	cutoff := time.Now().Add(-h.dedupWindow * 2)
-	h.dedupMu.Lock()
-	defer h.dedupMu.Unlock()
-	for k, ts := range h.lastSeen {
-		if ts.Before(cutoff) {
-			delete(h.lastSeen, k)
-		}
-	}
-}
-
-// StartDedupGC запускает фоновую горутину чистки lastSeen — вызывать один раз при старте app.
-func (h *Hub) StartDedupGC(ctx context.Context) {
-	if h.dedupWindow <= 0 {
-		return
-	}
-	go func() {
-		t := time.NewTicker(5 * time.Minute)
-		defer t.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				h.pruneDedup()
-			}
-		}
-	}()
-}
-
-func (h *Hub) Broadcast(lectureID int64, data []byte) {
-	request := struct {
-		LectureID int64  `json:"lecture_id"`
-		PersonID  string `json:"person_id"`
-		RequestID string `json:"request_id"`
-	}{}
-
-	if err := json.Unmarshal(data, &request); err != nil {
-		slog.Warn("recognition_invalid", "service", "backend", "event", "recognition_invalid", "lecture_id", lectureID)
-		return
+	payload, err := json.Marshal(user)
+	if err != nil {
+		slog.Error("ws_payload_failed", "lecture_id", visit.LectureID, "request_id", visit.RequestID, "error", err)
+		return nil
 	}
 
-	// Пустой PersonID = face-recognizing не нашёл совпадения. Раньше шёл дальше и
-	// падал на FK-ограничении в visits.lectures_visiting. Просто выходим — это
-	// нормальный сигнал, не ошибка.
-	if request.PersonID == "" {
-		slog.Info("recognition_ignored", "service", "backend", "event", "recognition_ignored", "lecture_id", lectureID, "request_id", request.RequestID, "outcome", "no_match")
-		return
-	}
-
-	// Dedup: если этот же студент уже отмечен в текущем окне — пропускаем INSERT
-	// и не рассылаем повторное событие. lastSeen скользит дальше.
-	if h.shouldDedup(request.LectureID, request.PersonID) {
-		slog.Info("visit_deduplicated", "service", "backend", "event", "visit_deduplicated", "lecture_id", lectureID, "request_id", request.RequestID, "person_id", request.PersonID)
-		return
-	}
-
-	// 1. Snapshot клиентов
 	h.mu.Lock()
-	clientsMap := h.lectures[lectureID]
-	clients := make([]*Client, 0, len(clientsMap))
-	for c := range clientsMap {
-		clients = append(clients, c)
+	defer h.mu.Unlock()
+	clients := h.lectures[visit.LectureID]
+	queued, dropped := 0, 0
+	for client := range clients {
+		select {
+		case client.send <- payload:
+			queued++
+		default:
+			dropped++
+		}
 	}
-	h.mu.Unlock()
-
-	// 2. INSERT и fan-out — в отдельной горутине, чтобы consumer RabbitMQ не блокировался
-	// на БД-операциях и сетевой отправке. На случай большой нагрузки goroutine остаётся
-	// дешёвой; для жёсткого ограничения числа inflight операций можно добавить семафор.
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
-		defer cancel()
-
-		writeStarted := time.Now()
-		user, err := h.serv.AddUserVisitsLecture(ctx, request.PersonID, request.LectureID)
-		if err != nil {
-			slog.Error("visit_write_failed", "service", "backend", "event", "visit_write_failed", "lecture_id", lectureID, "request_id", request.RequestID, "person_id", request.PersonID, "duration_ms", time.Since(writeStarted).Milliseconds(), "error_type", fmt.Sprintf("%T", err))
-			return
-		}
-		slog.Info("visit_written", "service", "backend", "event", "visit_written", "lecture_id", lectureID, "request_id", request.RequestID, "person_id", request.PersonID, "duration_ms", time.Since(writeStarted).Milliseconds())
-
-		payload, err := json.Marshal(user)
-		if err != nil {
-			slog.Error("ws_payload_failed", "service", "backend", "event", "ws_payload_failed", "lecture_id", lectureID, "request_id", request.RequestID, "person_id", request.PersonID, "error_type", fmt.Sprintf("%T", err))
-			return
-		}
-
-		queued, dropped := 0, 0
-		for _, c := range clients {
-			// Non-blocking send: если у клиента полный буфер — пропускаем, чтобы один
-			// зависший подписчик не блокировал рассылку остальным.
-			select {
-			case c.send <- payload:
-				queued++
-			default:
-				dropped++
-			}
-		}
-		slog.Info("ws_fanout_summary", "service", "backend", "event", "ws_fanout_summary", "lecture_id", lectureID, "request_id", request.RequestID, "person_id", request.PersonID, "subscribers", len(clients), "queued", queued, "dropped", dropped)
-	}()
+	slog.Info("ws_fanout_summary", "service", "backend", "event", "ws_fanout_summary",
+		"lecture_id", visit.LectureID, "run_id", visit.RunID, "request_id", visit.RequestID,
+		"person_id", visit.UserID, "subscribers", len(clients), "queued", queued, "dropped", dropped)
+	return nil
 }

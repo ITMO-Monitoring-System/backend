@@ -6,4 +6,6 @@ type LectureVisit struct {
 	LectureID int64
 	UserID    string
 	Date      time.Time
+	RunID     string
+	RequestID string
 }

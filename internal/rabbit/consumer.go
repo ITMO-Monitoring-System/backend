@@ -3,13 +3,17 @@ package rabbit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	amqp "github.com/rabbitmq/amqp091-go"
 
+	"monitoring_backend/internal/domain"
 	"monitoring_backend/internal/ws"
 )
 
@@ -95,29 +99,29 @@ func consumeOnce(ctx context.Context, amqpURL string, queue string, lectureID in
 			if !ok {
 				return amqp.ErrClosed
 			}
-			var result struct {
-				RequestID string `json:"request_id"`
-				PersonID  string `json:"person_id"`
+			var result recognitionResult
+			if err := json.Unmarshal(msg.Body, &result); err != nil {
+				slog.Warn("recognition_invalid", "lecture_id", lectureID)
+				if err := msg.Reject(false); err != nil {
+					return err
+				}
+				continue
 			}
-			_ = json.Unmarshal(msg.Body, &result)
-			slog.Info("recognition_received", "service", "backend", "event", "recognition_received", "lecture_id", lectureID, "request_id", result.RequestID, "person_id", result.PersonID, "bytes", len(msg.Body))
-
-			if isLectureEnd(msg.Body) {
-				_ = msg.Ack(false)
-				log.Printf("lecture %d is end", lectureID)
-				return nil
+			if result.End {
+				return msg.Ack(false)
 			}
-
-			// Здесь можно парсить JSON, валидировать, писать в БД.
-			// Для минимального рабочего варианта — просто транслируем body как есть.
-			hub.Broadcast(lectureID, msg.Body)
-
-			// Ack после успешной передачи в Hub (передача асинхронная, но это достаточный критерий для учебного проекта)
+			slog.Info("recognition_received", "service", "backend", "event", "recognition_received",
+				"lecture_id", lectureID, "run_id", result.RunID, "request_id", result.RequestID, "person_id", result.PersonID, "bytes", len(msg.Body))
+			if err := storeResult(ctx, hub, lectureID, result); err != nil {
+				// Closing the channel requeues the unacked delivery. The outer
+				// reconnect backoff also limits retries during a database outage.
+				return err
+			}
 			if err := msg.Ack(false); err != nil {
-				slog.Error("recognition_ack_failed", "service", "backend", "event", "recognition_ack_failed", "lecture_id", lectureID, "request_id", result.RequestID, "person_id", result.PersonID, "error_type", fmt.Sprintf("%T", err))
-			} else {
-				slog.Info("recognition_acked", "service", "backend", "event", "recognition_acked", "lecture_id", lectureID, "request_id", result.RequestID, "person_id", result.PersonID)
+				return err
 			}
+			slog.Info("recognition_acked", "service", "backend", "event", "recognition_acked",
+				"lecture_id", lectureID, "run_id", result.RunID, "request_id", result.RequestID, "person_id", result.PersonID)
 
 		case err := <-conn_closed:
 			if err != nil {
@@ -134,12 +138,37 @@ func consumeOnce(ctx context.Context, amqpURL string, queue string, lectureID in
 	}
 }
 
-func isLectureEnd(body []byte) bool {
-	var msg struct {
-		End bool `json:"end"`
+type recognitionResult struct {
+	LectureID  int64     `json:"lecture_id"`
+	RunID      string    `json:"run_id"`
+	RequestID  string    `json:"request_id"`
+	PersonID   string    `json:"person_id"`
+	ObservedAt time.Time `json:"observed_at"`
+	End        bool      `json:"end"`
+}
+
+func storeResult(ctx context.Context, hub *ws.Hub, lectureID int64, result recognitionResult) error {
+	if result.PersonID == "" {
+		return nil
 	}
-	if err := json.Unmarshal(body, &msg); err != nil {
-		return false
+	var runID pgtype.UUID
+	if result.LectureID != lectureID || (result.RunID != "" && (runID.Scan(result.RunID) != nil || !runID.Valid || result.RequestID == "")) {
+		slog.Warn("recognition_invalid", "lecture_id", lectureID, "run_id", result.RunID, "request_id", result.RequestID)
+		return nil
 	}
-	return msg.End
+	if result.ObservedAt.IsZero() {
+		result.ObservedAt = time.Now()
+	}
+	writeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	err := hub.RecordObservation(writeCtx, domain.LectureVisit{
+		LectureID: lectureID, RunID: result.RunID, UserID: result.PersonID, RequestID: result.RequestID, Date: result.ObservedAt,
+	})
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+		// A deleted lecture or user cannot be recovered by retrying this result.
+		slog.Warn("recognition_reference_missing", "lecture_id", lectureID, "request_id", result.RequestID, "constraint", pgErr.ConstraintName)
+		return nil
+	}
+	return err
 }

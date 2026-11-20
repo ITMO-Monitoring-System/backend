@@ -47,14 +47,14 @@ func (r *lectureVisitsRepository) GetTeacherReport(ctx context.Context, teacherI
   JOIN universities_data.lectures_groups lg ON lg.lecture_id = l.id
   JOIN universities_data.students_groups sg ON sg.group_code = lg.group_id
  ), snaps AS (
-  SELECT lv.lecture_id, lv.user_id, lv.date,
-   LEAD(lv.date) OVER (PARTITION BY lv.lecture_id, lv.user_id ORDER BY lv.date) AS next_time
-  FROM visits.lectures_visiting lv
-  JOIN roster r ON r.lecture_id = lv.lecture_id AND r.user_id = lv.user_id
+  SELECT lv.lecture_id, lv.user_id, lv.observed_at,
+   LEAD(lv.observed_at) OVER (PARTITION BY lv.lecture_id, lv.user_id, lv.run_id ORDER BY lv.observed_at) AS next_time
+  FROM visits.lecture_observation_history lv
+  WHERE EXISTS (SELECT 1 FROM roster r WHERE r.lecture_id = lv.lecture_id AND r.user_id = lv.user_id)
  ), presence AS (
   SELECT lecture_id, user_id, COUNT(*) AS detection_count,
-   COALESCE(SUM(CASE WHEN next_time IS NOT NULL AND next_time - date <= make_interval(secs => $5)
-    THEN EXTRACT(EPOCH FROM (next_time - date)) ELSE 0 END), 0)::bigint AS present_seconds
+   COALESCE(SUM(CASE WHEN next_time IS NOT NULL AND next_time - observed_at <= make_interval(secs => $5)
+    THEN EXTRACT(EPOCH FROM (next_time - observed_at)) ELSE 0 END), 0)::bigint AS present_seconds
   FROM snaps GROUP BY lecture_id, user_id
  )
  SELECT r.lecture_id, r.group_code, u.isu, u.first_name, u.last_name, u.patronymic,

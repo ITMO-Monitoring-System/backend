@@ -23,11 +23,16 @@ type lectureLookup interface {
 	GetByID(context.Context, int64) (domain.Lecture, error)
 }
 
+type resultConsumer struct {
+	queue  string
+	runs   map[string]struct{}
+	cancel context.CancelFunc
+}
+
 type Manager struct {
 	mu sync.Mutex
 
-	started  map[int64]bool // lecture_id → consumer started
-	running  map[int64]context.CancelFunc
+	running  map[int64]resultConsumer
 	hub      *ws.Hub
 	amqpURL  string
 	lectures lectureLookup
@@ -35,8 +40,7 @@ type Manager struct {
 
 func NewManager(hub *ws.Hub, amqpURL string, lectures lectureLookup) *Manager {
 	return &Manager{
-		started:  make(map[int64]bool),
-		running:  make(map[int64]context.CancelFunc),
+		running:  make(map[int64]resultConsumer),
 		hub:      hub,
 		amqpURL:  amqpURL,
 		lectures: lectures,
@@ -106,16 +110,21 @@ func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 	}
 
 	m.mu.Lock()
-	if m.started[req.LectureID] {
+	if current, ok := m.running[req.LectureID]; ok {
+		if current.queue != req.Queue {
+			m.mu.Unlock()
+			response.WriteError(w, http.StatusConflict, "Lecture already consumes a different queue")
+			return
+		}
+		current.runs[req.RunID] = struct{}{}
 		m.mu.Unlock()
 		response.WriteJSON(w, http.StatusOK, "Consumer already running")
 		return
 	}
-	m.started[req.LectureID] = true
-
 	ctx, cancel := context.WithCancel(context.Background())
-	m.running[req.LectureID] = cancel
-
+	m.running[req.LectureID] = resultConsumer{
+		queue: req.Queue, runs: map[string]struct{}{req.RunID: {}}, cancel: cancel,
+	}
 	m.mu.Unlock()
 
 	slog.Info("lecture_consumer_started", "service", "backend", "event", "lecture_consumer_started", "lecture_id", req.LectureID, "queue", req.Queue)
@@ -146,15 +155,18 @@ func (m *Manager) StopLecture(w http.ResponseWriter, r *http.Request) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, ok := m.running[req.LectureID]; !ok {
+	current, ok := m.running[req.LectureID]
+	if !ok {
 		response.WriteError(w, http.StatusNotFound, "Lecture not found")
 		return
 	}
 
-	m.running[req.LectureID]()
-	delete(m.running, req.LectureID)
-	delete(m.started, req.LectureID)
-	slog.Info("lecture_consumer_stopped", "service", "backend", "event", "lecture_consumer_stopped", "lecture_id", req.LectureID)
+	delete(current.runs, req.RunID)
+	if len(current.runs) == 0 {
+		current.cancel()
+		delete(m.running, req.LectureID)
+		slog.Info("lecture_consumer_stopped", "service", "backend", "event", "lecture_consumer_stopped", "lecture_id", req.LectureID)
+	}
 
 	response.WriteJSON(w, http.StatusOK, "ok")
 }

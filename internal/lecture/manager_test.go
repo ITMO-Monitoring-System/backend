@@ -53,7 +53,42 @@ func TestStartLectureRejectsUnknownIDBeforeConsumer(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "/lecture/start",
 		strings.NewReader(`{"lecture_id":9999,"queue":"results"}`))
 	manager.StartLecture(w, r)
-	if w.Code != http.StatusNotFound || len(manager.running) != 0 || len(manager.started) != 0 {
+	if w.Code != http.StatusNotFound || len(manager.running) != 0 {
 		t.Fatalf("unknown lecture started: HTTP %d, %s", w.Code, w.Body)
+	}
+}
+
+func TestStoppingEarlierRunKeepsResultsConsumerForNextRun(t *testing.T) {
+	manager := NewManager(nil, "configured", funcLookupLecture(7))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	manager.running[7] = resultConsumer{
+		queue:  "results",
+		runs:   map[string]struct{}{"first": {}},
+		cancel: cancel,
+	}
+	start := httptest.NewRecorder()
+	manager.StartLecture(start, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(
+		`{"lecture_id":7,"queue":"results","run_id":"second"}`)))
+	if start.Code != http.StatusOK {
+		t.Fatalf("start next run: HTTP %d, %s", start.Code, start.Body)
+	}
+	stop := httptest.NewRecorder()
+	manager.StopLecture(stop, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(
+		`{"lecture_id":7,"run_id":"first"}`)))
+	if stop.Code != http.StatusOK || ctx.Err() != nil {
+		t.Fatalf("first stop canceled the active consumer: HTTP %d, context %v", stop.Code, ctx.Err())
+	}
+	stop = httptest.NewRecorder()
+	manager.StopLecture(stop, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(
+		`{"lecture_id":7,"run_id":"second"}`)))
+	if stop.Code != http.StatusOK || ctx.Err() != context.Canceled {
+		t.Fatalf("last stop did not cancel the consumer: HTTP %d, context %v", stop.Code, ctx.Err())
+	}
+}
+
+func funcLookupLecture(id int64) lookupFunc {
+	return func(context.Context, int64) (domain.Lecture, error) {
+		return domain.Lecture{ID: id}, nil
 	}
 }

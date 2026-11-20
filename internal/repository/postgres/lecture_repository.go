@@ -33,7 +33,7 @@ func (r *lectureRepository) GetByID(ctx context.Context, id int64) (domain.Lectu
 	query := `
         SELECT id, date, subject_id, teacher_id
         FROM universities_data.lectures
-        WHERE id = $1
+        WHERE id = $1::bigint
     `
 
 	var lecture domain.Lecture

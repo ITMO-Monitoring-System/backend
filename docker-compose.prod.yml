@@ -38,7 +38,6 @@ services:
         condition: service_completed_successfully
     environment:
       EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-https://projctviscon.vps.webdock.cloud/recognizing/api/embedding}
-      VISITS_DEDUP_WINDOW_SEC: "20"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
