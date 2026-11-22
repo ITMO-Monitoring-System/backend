@@ -40,6 +40,7 @@ var (
 	ErrUserNotFound                = errors.New("user not found")
 	ErrRoleAlreadyAssigned         = errors.New("role already assigned")
 	ErrUserHasLectures             = errors.New("user is a teacher with existing lectures")
+	ErrWrongPassword               = errors.New("wrong current password")
 )
 
 type FaceSlot string
