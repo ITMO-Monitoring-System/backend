@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"monitoring_backend/internal/domain"
 	httputil "monitoring_backend/internal/http/handlers"
 	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
@@ -14,6 +16,7 @@ type authService interface {
 	Login(ctx context.Context, request LoginRequest) (*LoginResponse, error)
 	Register(ctx context.Context, request RegisterRequest, ip, userAgent string) error
 	GetMe(ctx context.Context, isu string) (*MeResponse, error)
+	ChangePassword(ctx context.Context, isu, oldPassword, newPassword string) error
 }
 
 type AuthHandler struct {
@@ -114,4 +117,42 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.WriteJSON(w, http.StatusOK, me)
+}
+
+// ChangePassword godoc
+// @Summary      Смена пароля
+// @Description  Меняет пароль текущего пользователя. Требует текущий пароль для подтверждения.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body auth.ChangePasswordRequest true "Текущий и новый пароль"
+// @Success      200 {object} map[string]bool
+// @Failure      400 {object} response.ErrorResponse "Некорректные данные"
+// @Failure      401 {object} response.ErrorResponse "Не авторизован или неверный текущий пароль"
+// @Failure      500 {object} response.ErrorResponse "Внутренняя ошибка"
+// @Router       /api/auth/change-password [post]
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	isu, ok := middleware.UserID(r.Context())
+	if !ok || strings.TrimSpace(isu) == "" {
+		response.WriteError(w, http.StatusUnauthorized, "authorization required")
+		return
+	}
+
+	var req ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if err := h.authService.ChangePassword(r.Context(), isu, req.OldPassword, req.NewPassword); err != nil {
+		if errors.Is(err, domain.ErrWrongPassword) {
+			response.WriteError(w, http.StatusUnauthorized, "неверный текущий пароль")
+			return
+		}
+		httputil.WriteServiceError(w, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]bool{"success": true})
 }

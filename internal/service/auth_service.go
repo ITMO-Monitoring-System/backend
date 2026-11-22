@@ -30,6 +30,11 @@ type userRepository interface {
 	HasFaceImages(ctx context.Context, isu string) (bool, error)
 }
 
+const (
+	minPasswordLength = 6
+	maxPasswordLength = 72 // bcrypt input limit
+)
+
 type studentGroupRepository interface {
 	SetUserGroup(ctx context.Context, userID, groupCode string) error
 	GetUserGroup(ctx context.Context, userID string) (domain.StudentGroup, error)
@@ -119,6 +124,34 @@ func (s *AuthService) Register(ctx context.Context, req http.RegisterRequest, ip
 	}
 
 	return nil
+}
+
+func (s *AuthService) ChangePassword(ctx context.Context, isu, oldPassword, newPassword string) error {
+	isu = strings.TrimSpace(isu)
+	if isu == "" {
+		return fmt.Errorf("%w: не авторизован", domain.ErrInvalidInput)
+	}
+	if len(newPassword) < minPasswordLength {
+		return fmt.Errorf("%w: пароль должен быть не менее 6 символов", domain.ErrInvalidInput)
+	}
+	if len(newPassword) > maxPasswordLength {
+		return fmt.Errorf("%w: пароль слишком длинный (не более 72 байт)", domain.ErrInvalidInput)
+	}
+
+	currentHash, err := s.repo.GetUserPassword(ctx, isu)
+	if err != nil {
+		return err
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(oldPassword)); err != nil {
+		return domain.ErrWrongPassword
+	}
+
+	newHash, err := common.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	return s.repo.SetPassword(ctx, isu, newHash)
 }
 
 func (s *AuthService) GetMe(ctx context.Context, isu string) (*http.MeResponse, error) {

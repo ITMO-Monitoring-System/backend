@@ -20,6 +20,11 @@ type RegisterRequest struct {
 	PDConsentAccepted bool    `json:"pd_consent_accepted"`
 }
 
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
 type MeResponse struct {
 	ISU        string  `json:"isu"`
 	Role       string  `json:"role"`
