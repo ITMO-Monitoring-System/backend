@@ -28,6 +28,7 @@ type UserService interface {
 	DeleteUser(ctx context.Context, isu string) error
 	GetUserFace(ctx context.Context, isu string, slot domain.FaceSlot) ([]byte, time.Time, error)
 	GetUserFacesMeta(ctx context.Context, isu string) (FacesMetaResponse, error)
+	UpdateProfile(ctx context.Context, isu string, request UpdateProfileRequest) (ProfileResponse, error)
 }
 
 type UserHandler struct {
@@ -423,4 +424,39 @@ func (h *UserHandler) GetMyFace(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "private, max-age=0, must-revalidate")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
+}
+
+// UpdateMyProfile godoc
+// @Summary      Редактирование своего профиля
+// @Description  Обновляет имя, фамилию и отчество текущего пользователя. ИСУ, направление и группа не редактируются этой ручкой.
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body UpdateProfileRequest true "Новые ФИО"
+// @Success      200 {object} ProfileResponse
+// @Failure      400 {object} response.ErrorResponse "Некорректные данные"
+// @Failure      401 {object} response.ErrorResponse "Не авторизован"
+// @Failure      500 {object} response.ErrorResponse "Внутренняя ошибка"
+// @Router       /api/user/me [put]
+func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
+	isu, ok := middleware.UserID(r.Context())
+	if !ok || strings.TrimSpace(isu) == "" {
+		response.WriteError(w, http.StatusUnauthorized, "authorization required")
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := h.userService.UpdateProfile(r.Context(), isu, req)
+	if err != nil {
+		httputil.WriteServiceError(w, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, resp)
 }

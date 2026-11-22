@@ -141,6 +141,7 @@ func New(d Dependencies) *mux.Router {
 	userProtected.HandleFunc("/upload/faces/{isu}", d.User.UploadFaces).Methods(http.MethodPost)
 	userProtected.HandleFunc("/faces/me/meta", d.User.GetMyFacesMeta).Methods(http.MethodGet)
 	userProtected.HandleFunc("/faces/me/{slot}", d.User.GetMyFace).Methods(http.MethodGet)
+	userProtected.HandleFunc("/me", d.User.UpdateMyProfile).Methods(http.MethodPut)
 
 	// consents (protected)
 	consentGroup := userGroup.PathPrefix("/consents").Subrouter()

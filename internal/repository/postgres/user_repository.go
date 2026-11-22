@@ -202,8 +202,18 @@ func (u *userRepository) GetUserPassword(ctx context.Context, isu string) (strin
 }
 
 func (u *userRepository) Update(ctx context.Context, user domain.User) error {
-	//TODO implement me
-	panic("implement me")
+	tag, err := u.db.Exec(ctx, `
+		UPDATE cores.users
+		SET first_name = $2, last_name = $3, patronymic = $4
+		WHERE isu = $1
+	`, user.ISU, user.FirstName, user.LastName, user.Patronymic)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrUserNotFound
+	}
+	return nil
 }
 
 func (u *userRepository) Delete(ctx context.Context, isu string) error {

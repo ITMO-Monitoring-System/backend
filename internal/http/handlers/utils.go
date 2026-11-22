@@ -85,7 +85,8 @@ func WriteServiceError(w http.ResponseWriter, err error) {
 		errors.Is(err, domain.ErrorDepartmentNotFound) ||
 		errors.Is(err, domain.ErrorDepartmentsNotFound) ||
 		errors.Is(err, domain.ErrGroupNotFound) ||
-		errors.Is(err, domain.ErrGroupsNotFound) {
+		errors.Is(err, domain.ErrGroupsNotFound) ||
+		errors.Is(err, domain.ErrUserNotFound) {
 		response.WriteError(w, http.StatusNotFound, err.Error())
 		return
 	}

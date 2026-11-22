@@ -173,6 +173,39 @@ func (s *userService) GetUserFace(ctx context.Context, isu string, slot domain.F
 	return s.userRepo.GetFaceImage(ctx, isu, slot)
 }
 
+func (s *userService) UpdateProfile(ctx context.Context, isu string, request http.UpdateProfileRequest) (http.ProfileResponse, error) {
+	isu = strings.TrimSpace(isu)
+	firstName := strings.TrimSpace(request.FirstName)
+	lastName := strings.TrimSpace(request.LastName)
+	if isu == "" {
+		return http.ProfileResponse{}, fmt.Errorf("%w: не авторизован", domain.ErrInvalidInput)
+	}
+	if firstName == "" || lastName == "" {
+		return http.ProfileResponse{}, fmt.Errorf("%w: имя и фамилия обязательны", domain.ErrInvalidInput)
+	}
+	if len([]rune(firstName)) > 125 || len([]rune(lastName)) > 125 {
+		return http.ProfileResponse{}, fmt.Errorf("%w: слишком длинное имя или фамилия", domain.ErrInvalidInput)
+	}
+
+	var patronymic *string
+	if request.Patronymic != nil {
+		value := strings.TrimSpace(*request.Patronymic)
+		if len([]rune(value)) > 125 {
+			return http.ProfileResponse{}, fmt.Errorf("%w: слишком длинное отчество", domain.ErrInvalidInput)
+		}
+		if value != "" {
+			patronymic = &value
+		}
+	}
+
+	user := domain.User{ISU: isu, FirstName: firstName, LastName: lastName, Patronymic: patronymic}
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return http.ProfileResponse{}, err
+	}
+
+	return http.ProfileResponse{ISU: isu, FirstName: firstName, LastName: lastName, Patronymic: patronymic}, nil
+}
+
 func (s *userService) GetUserFacesMeta(ctx context.Context, isu string) (http.FacesMetaResponse, error) {
 	isu = strings.TrimSpace(isu)
 	if isu == "" {
