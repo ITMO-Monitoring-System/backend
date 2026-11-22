@@ -15,6 +15,7 @@ type GroupService interface {
 	GetByCode(ctx context.Context, req GetGroupByCodeRequest) (GroupResponse, error)
 	ListByDepartment(ctx context.Context, req ListGroupsByDepartmentRequest) ([]GroupResponse, error)
 	Create(ctx context.Context, req CreateGroupRequest) (GroupResponse, error)
+	BulkCreate(ctx context.Context, req BulkCreateGroupsRequest) (BulkCreateGroupsResult, error)
 	Delete(ctx context.Context, code string) error
 }
 
@@ -109,6 +110,41 @@ func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.WriteJSON(w, http.StatusCreated, resp)
+}
+
+// BulkCreateGroups godoc
+// @Summary      Массовое создание групп
+// @Description  Создаёт несколько групп в одном направлении за раз. Возвращает отчёт: что создано, что пропущено и почему.
+// @Tags         groups
+// @Accept       json
+// @Produce      json
+// @Param        request  body      group.BulkCreateGroupsRequest  true  "Направление и список кодов групп"
+// @Success      200  {object}  group.BulkCreateGroupsResult
+// @Failure      400  {object}  response.ErrorResponse
+// @Failure      500  {object}  response.ErrorResponse
+// @Router       /api/groups/bulk [post]
+func (h *GroupHandler) BulkCreate(w http.ResponseWriter, r *http.Request) {
+	var req BulkCreateGroupsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.DepartmentID == 0 {
+		response.WriteError(w, http.StatusBadRequest, "department_id is required")
+		return
+	}
+	if len(req.Codes) == 0 {
+		response.WriteError(w, http.StatusBadRequest, "codes is required")
+		return
+	}
+
+	resp, err := h.service.BulkCreate(r.Context(), req)
+	if err != nil {
+		httputil.WriteServiceError(w, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, resp)
 }
 
 // DeleteGroup godoc

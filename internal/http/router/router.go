@@ -84,6 +84,7 @@ func New(d Dependencies) *mux.Router {
 
 	api.HandleFunc("/departments/{department_id:[0-9]+}/groups", d.Group.ListByDepartment).Methods("GET")
 	api.HandleFunc("/groups", d.Group.Create).Methods("POST")
+	api.HandleFunc("/groups/bulk", d.Group.BulkCreate).Methods("POST")
 	api.HandleFunc("/groups/{code}", d.Group.GetByCode).Methods("GET")
 	api.HandleFunc("/groups/{code}", d.Group.Delete).Methods("DELETE")
 
