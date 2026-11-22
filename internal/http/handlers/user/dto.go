@@ -50,3 +50,16 @@ type FacesMetaResponse struct {
 	UpdatedAt *string  `json:"updated_at,omitempty"`
 	Slots     []string `json:"slots,omitempty"`
 }
+
+type UpdateProfileRequest struct {
+	FirstName  string  `json:"first_name"`
+	LastName   string  `json:"last_name"`
+	Patronymic *string `json:"patronymic,omitempty"`
+}
+
+type ProfileResponse struct {
+	ISU        string  `json:"isu"`
+	FirstName  string  `json:"first_name"`
+	LastName   string  `json:"last_name"`
+	Patronymic *string `json:"patronymic,omitempty"`
+}
