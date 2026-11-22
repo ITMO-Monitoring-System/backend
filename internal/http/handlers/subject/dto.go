@@ -13,6 +13,10 @@ type GetSubjectByNameRequest struct {
 	Name string `validate:"required"`
 }
 
+type UpdateSubjectRequest struct {
+	Name string `json:"name" validate:"required"`
+}
+
 type ListSubjectsRequest struct {
 	Limit  int `validate:"omitempty,gte=1,lte=200"`
 	Offset int `validate:"omitempty,gte=0"`

@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 
 	httputil "monitoring_backend/internal/http/handlers"
+	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
 )
 
@@ -16,6 +17,7 @@ type SubjectService interface {
 	GetByID(ctx context.Context, req GetSubjectByIDRequest) (SubjectResponse, error)
 	GetByName(ctx context.Context, req GetSubjectByNameRequest) (SubjectResponse, error)
 	List(ctx context.Context, req ListSubjectsRequest) ([]SubjectResponse, error)
+	Update(ctx context.Context, id int64, req UpdateSubjectRequest) (SubjectResponse, error)
 	Delete(ctx context.Context, id int64) error
 }
 
@@ -135,6 +137,52 @@ func (h *SubjectHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := h.service.List(r.Context(), ListSubjectsRequest{Limit: limit, Offset: offset})
+	if err != nil {
+		httputil.WriteServiceError(w, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, resp)
+}
+
+// UpdateSubject godoc
+// @Summary      Редактировать предмет
+// @Tags         subjects
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id       path      int                          true  "Subject ID"
+// @Param        request  body      subject.UpdateSubjectRequest true  "Новое название предмета"
+// @Success      200  {object}  subject.SubjectResponse
+// @Failure      400  {object}  response.ErrorResponse
+// @Failure      403  {object}  response.ErrorResponse
+// @Failure      404  {object}  response.ErrorResponse
+// @Failure      500  {object}  response.ErrorResponse
+// @Router       /api/subjects/{id} [put]
+func (h *SubjectHandler) Update(w http.ResponseWriter, r *http.Request) {
+	if role, ok := middleware.Role(r.Context()); !ok || role != "admin" {
+		response.WriteError(w, http.StatusForbidden, "admin only")
+		return
+	}
+
+	vars := mux.Vars(r)
+	id, err := httputil.PathInt64(r, "id", vars)
+	if err != nil {
+		response.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req UpdateSubjectRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Name == "" {
+		response.WriteError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	resp, err := h.service.Update(r.Context(), id, req)
 	if err != nil {
 		httputil.WriteServiceError(w, err)
 		return

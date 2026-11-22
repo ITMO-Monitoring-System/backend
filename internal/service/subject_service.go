@@ -73,6 +73,14 @@ func (s *SubjectService) List(ctx context.Context, req subjdto.ListSubjectsReque
 	return out, nil
 }
 
+func (s *SubjectService) Update(ctx context.Context, id int64, req subjdto.UpdateSubjectRequest) (subjdto.SubjectResponse, error) {
+	subj, err := s.repo.Update(ctx, id, req.Name)
+	if err != nil {
+		return subjdto.SubjectResponse{}, err
+	}
+	return mapSubject(subj), nil
+}
+
 func (s *SubjectService) Delete(ctx context.Context, id int64) error {
 	return s.repo.Delete(ctx, id)
 }
