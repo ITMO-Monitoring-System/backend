@@ -115,22 +115,33 @@ func (s *userService) GetUserRoles(ctx context.Context, isu string) ([]string, e
 	return roles, nil
 }
 
-func (s *userService) AddUserRole(ctx context.Context, request http.AddUserRoleRequest) error {
-	isu := strings.TrimSpace(request.ISU)
-	role := strings.TrimSpace(request.Role)
-
+func (s *userService) AddUserRoles(ctx context.Context, isu string, roles []string) ([]string, error) {
+	isu = strings.TrimSpace(isu)
 	if isu == "" {
-		return fmt.Errorf("%w: ИСУ обязателен", domain.ErrInvalidInput)
-	}
-	if role != "admin" && role != "teacher" && role != "student" {
-		return fmt.Errorf("%w: Неизвестная роль", domain.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: ИСУ обязателен", domain.ErrInvalidInput)
 	}
 
-	if err := s.userRepo.AddRole(ctx, isu, role); err != nil {
-		return err
+	normalized := make([]string, 0, len(roles))
+	seen := map[string]bool{}
+	for _, role := range roles {
+		role = strings.ToLower(strings.TrimSpace(role))
+		if role != "admin" && role != "teacher" && role != "student" {
+			return nil, fmt.Errorf("%w: Неизвестная роль %q", domain.ErrInvalidInput, role)
+		}
+		if !seen[role] {
+			normalized = append(normalized, role)
+			seen[role] = true
+		}
+	}
+	if len(normalized) == 0 {
+		return nil, fmt.Errorf("%w: нужна хотя бы одна роль", domain.ErrInvalidInput)
 	}
 
-	return nil
+	if err := s.userRepo.AddRoles(ctx, isu, normalized); err != nil {
+		return nil, err
+	}
+
+	return normalized, nil
 }
 
 func (s *userService) ListUsers(ctx context.Context, limit, offset int, role string) ([]http.UserResponse, error) {
