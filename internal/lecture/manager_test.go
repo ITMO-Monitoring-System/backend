@@ -92,3 +92,5 @@ func funcLookupLecture(id int64) lookupFunc {
 		return domain.Lecture{ID: id}, nil
 	}
 }
+
+func (f lookupFunc) SetRunFinished(context.Context, int64, string, bool) error { return nil }

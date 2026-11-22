@@ -99,6 +99,7 @@ func New(d Dependencies) *mux.Router {
 	api.HandleFunc("/subjects/by-name/{name}", d.Subject.GetByName).Methods("GET")
 
 	api.HandleFunc("/lectures", d.Lecture.Create).Methods("POST")
+	api.Handle("/lectures/{id:[0-9]+}", jwtMW(http.HandlerFunc(d.Lecture.Update))).Methods(http.MethodPut)
 	api.HandleFunc("/lectures/{id:[0-9]+}", d.Lecture.GetByID).Methods("GET")
 	api.HandleFunc("/teachers/{isu}/lectures", d.Lecture.ListByTeacher).Methods("GET")
 	api.HandleFunc("/subjects/{id:[0-9]+}/lectures", d.Lecture.ListBySubject).Methods("GET")

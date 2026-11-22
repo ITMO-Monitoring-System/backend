@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
 
 	httputil "monitoring_backend/internal/http/handlers"
+	"monitoring_backend/internal/http/middleware"
 	"monitoring_backend/internal/http/response"
 )
 
 type LectureService interface {
+	Update(ctx context.Context, id int64, req CreateLectureRequest) (LectureResponse, error)
 	Create(ctx context.Context, req CreateLectureRequest) (LectureResponse, error)
 	GetByID(ctx context.Context, req GetLectureByIDRequest) (LectureResponse, error)
 	ListByTeacher(ctx context.Context, req ListLecturesByTeacherRequest) ([]LectureListItemResponse, error)
@@ -59,6 +60,43 @@ func (h *LectureHandler) Create(w http.ResponseWriter, r *http.Request) {
 	response.WriteJSON(w, http.StatusCreated, resp)
 }
 
+// Update godoc
+// @Summary Update a lecture owned by the authenticated teacher
+// @Tags lectures
+// @Accept json
+// @Produce json
+// @Param id path int true "Lecture ID"
+// @Param Authorization header string true "Bearer token"
+// @Param request body CreateLectureRequest true "Lecture details (teacher_id comes from the token)"
+// @Success 200 {object} LectureResponse
+// @Failure 400,401,403,404 {object} response.ErrorResponse
+// @Router /api/lectures/{id} [put]
+func (h *LectureHandler) Update(w http.ResponseWriter, r *http.Request) {
+	id, err := httputil.PathInt64(r, "id", mux.Vars(r))
+	if err != nil || id <= 0 {
+		response.WriteError(w, http.StatusBadRequest, "invalid lecture id")
+		return
+	}
+	actor, _ := middleware.UserID(r.Context())
+	role, _ := middleware.Role(r.Context())
+	if role != "teacher" || actor == "" {
+		response.WriteError(w, http.StatusForbidden, "teacher required")
+		return
+	}
+	var req CreateLectureRequest
+	if json.NewDecoder(r.Body).Decode(&req) != nil || req.Date.IsZero() || req.SubjectID <= 0 || len(req.GroupIDs) == 0 {
+		response.WriteError(w, http.StatusBadRequest, "date, subject_id and group_ids are required")
+		return
+	}
+	req.TeacherID = actor
+	item, err := h.service.Update(r.Context(), id, req)
+	if err != nil {
+		httputil.WriteServiceError(w, err)
+		return
+	}
+	response.WriteJSON(w, http.StatusOK, item)
+}
+
 // GetLectureByID godoc
 // @Summary      Get lecture by ID
 // @Tags         lectures
@@ -91,8 +129,8 @@ func (h *LectureHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 // @Tags         lectures
 // @Produce      json
 // @Param        isu   path   string  true  "Teacher ISU"
-// @Param        from  query  string  true  "RFC3339 start time"
-// @Param        to    query  string  true  "RFC3339 end time"
+// @Param        from  query  string  false  "RFC3339 start time"
+// @Param        to    query  string  false  "RFC3339 end time"
 // @Success      200  {array}   lecture.LectureListItemResponse
 // @Failure      400  {object}  response.ErrorResponse
 // @Failure      500  {object}  response.ErrorResponse
@@ -105,11 +143,27 @@ func (h *LectureHandler) ListByTeacher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.ListByTeacher(r.Context(), ListLecturesByTeacherRequest{
-		TeacherID: teacherID,
-		From:      time.Time{},
-		To:        time.Time{},
-	})
+	req := ListLecturesByTeacherRequest{TeacherID: teacherID}
+	for _, key := range []string{"from", "to"} {
+		if !r.URL.Query().Has(key) {
+			continue
+		}
+		value, err := httputil.QueryTimeRFC3339(r, key)
+		if err != nil {
+			response.WriteError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if key == "from" {
+			req.From = value
+		} else {
+			req.To = value
+		}
+	}
+	if !req.To.IsZero() && req.To.Before(req.From) {
+		response.WriteError(w, http.StatusBadRequest, "invalid date range")
+		return
+	}
+	resp, err := h.service.ListByTeacher(r.Context(), req)
 	if err != nil {
 		httputil.WriteServiceError(w, err)
 		return

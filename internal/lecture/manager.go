@@ -20,6 +20,7 @@ import (
 )
 
 type lectureLookup interface {
+	SetRunFinished(context.Context, int64, string, bool) error
 	GetByID(context.Context, int64) (domain.Lecture, error)
 }
 
@@ -110,12 +111,18 @@ func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 	}
 
 	m.mu.Lock()
-	if current, ok := m.running[req.LectureID]; ok {
-		if current.queue != req.Queue {
-			m.mu.Unlock()
-			response.WriteError(w, http.StatusConflict, "Lecture already consumes a different queue")
-			return
-		}
+	current, ok := m.running[req.LectureID]
+	if ok && current.queue != req.Queue {
+		m.mu.Unlock()
+		response.WriteError(w, http.StatusConflict, "Lecture already consumes a different queue")
+		return
+	}
+	if err := m.lectures.SetRunFinished(r.Context(), req.LectureID, req.RunID, false); err != nil {
+		m.mu.Unlock()
+		response.WriteError(w, http.StatusServiceUnavailable, "could not save lecture start")
+		return
+	}
+	if ok {
 		current.runs[req.RunID] = struct{}{}
 		m.mu.Unlock()
 		response.WriteJSON(w, http.StatusOK, "Consumer already running")
@@ -156,8 +163,16 @@ func (m *Manager) StopLecture(w http.ResponseWriter, r *http.Request) {
 	defer m.mu.Unlock()
 
 	current, ok := m.running[req.LectureID]
+	if err := m.lectures.SetRunFinished(r.Context(), req.LectureID, req.RunID, true); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			response.WriteError(w, http.StatusNotFound, "Lecture run not found")
+		} else {
+			response.WriteError(w, http.StatusServiceUnavailable, "could not save lecture stop")
+		}
+		return
+	}
 	if !ok {
-		response.WriteError(w, http.StatusNotFound, "Lecture not found")
+		response.WriteJSON(w, http.StatusOK, "ok")
 		return
 	}
 

@@ -2,10 +2,12 @@ package postgres
 
 import (
 	"context"
-	"monitoring_backend/internal/domain"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"monitoring_backend/internal/domain"
 )
 
 type lectureRepository struct {
@@ -99,4 +101,20 @@ func (r *lectureRepository) ListBySubject(ctx context.Context, subjectID int64, 
 	}
 
 	return lectures, rows.Err()
+}
+
+func (r *lectureRepository) SetRunFinished(ctx context.Context, id int64, run string, finished bool) error {
+	if finished {
+		tag, err := r.db.Exec(ctx, `UPDATE universities_data.lecture_runs
+            SET finished = true
+            WHERE lecture_id = $1 AND run_id = $2`, id, run)
+		if err == nil && tag.RowsAffected() == 0 {
+			return pgx.ErrNoRows
+		}
+		return err
+	}
+	_, err := r.db.Exec(ctx, `INSERT INTO universities_data.lecture_runs (lecture_id, run_id)
+        VALUES ($1, $2)
+        ON CONFLICT (lecture_id, run_id) DO UPDATE SET finished = false`, id, run)
+	return err
 }
