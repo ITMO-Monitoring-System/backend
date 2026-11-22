@@ -35,6 +35,7 @@ type SubjectRepository interface {
 	GetByID(ctx context.Context, id int64) (domain.Subject, error)
 	GetByName(ctx context.Context, name string) (domain.Subject, error)
 	List(ctx context.Context, limit, offset int) ([]domain.Subject, error)
+	Update(ctx context.Context, id int64, name string) (domain.Subject, error)
 	Delete(ctx context.Context, id int64) error
 }
 

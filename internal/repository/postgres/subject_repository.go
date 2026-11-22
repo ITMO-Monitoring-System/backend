@@ -2,8 +2,11 @@ package postgres
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"errors"
 	"monitoring_backend/internal/domain"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type subjectRepository struct {
@@ -80,6 +83,22 @@ func (r *subjectRepository) List(ctx context.Context, limit, offset int) ([]doma
 	}
 
 	return subjects, rows.Err()
+}
+
+func (r *subjectRepository) Update(ctx context.Context, id int64, name string) (domain.Subject, error) {
+	query := `
+        UPDATE universities_data.subjects
+        SET name = $2
+        WHERE id = $1
+        RETURNING id, name
+    `
+
+	var subj domain.Subject
+	err := r.db.QueryRow(ctx, query, id, name).Scan(&subj.ID, &subj.Name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return subj, domain.ErrSubjectNotFound
+	}
+	return subj, err
 }
 
 func (r *subjectRepository) Delete(ctx context.Context, id int64) error {
