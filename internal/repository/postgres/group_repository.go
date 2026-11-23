@@ -17,17 +17,19 @@ func NewGroupRepository(db *pgxpool.Pool) GroupRepository {
 	return &groupRepository{db: db}
 }
 
-func (r *groupRepository) GetByCode(ctx context.Context, code string) (domain.Group, error) {
-	query := `
-        SELECT code, department_id
-        FROM universities_data.groups
-        WHERE code = $1
+const groupWithStudentCount = `
+        SELECT g.code, g.department_id, (
+            SELECT count(*) FROM universities_data.students_groups AS sg WHERE sg.group_code = g.code
+        )
+        FROM universities_data.groups AS g
     `
 
+func (r *groupRepository) GetByCode(ctx context.Context, code string) (domain.Group, error) {
 	var group domain.Group
-	err := r.db.QueryRow(ctx, query, code).Scan(
+	err := r.db.QueryRow(ctx, groupWithStudentCount+`WHERE g.code = $1`, code).Scan(
 		&group.Code,
 		&group.DepartmentID,
+		&group.StudentCount,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -42,14 +44,7 @@ func (r *groupRepository) GetByCode(ctx context.Context, code string) (domain.Gr
 }
 
 func (r *groupRepository) ListByDepartment(ctx context.Context, departmentID int64) ([]domain.Group, error) {
-	query := `
-        SELECT code, department_id
-        FROM universities_data.groups
-        WHERE department_id = $1
-        ORDER BY code
-    `
-
-	rows, err := r.db.Query(ctx, query, departmentID)
+	rows, err := r.db.Query(ctx, groupWithStudentCount+`WHERE g.department_id = $1 ORDER BY g.code`, departmentID)
 	if err != nil {
 		return nil, err
 	}
@@ -58,17 +53,13 @@ func (r *groupRepository) ListByDepartment(ctx context.Context, departmentID int
 	var groups []domain.Group
 	for rows.Next() {
 		var group domain.Group
-		if err := rows.Scan(&group.Code, &group.DepartmentID); err != nil {
+		if err := rows.Scan(&group.Code, &group.DepartmentID, &group.StudentCount); err != nil {
 			return nil, err
 		}
 		groups = append(groups, group)
 	}
 
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, domain.ErrGroupsNotFound
-	}
-
-	return groups, nil
+	return groups, rows.Err()
 }
 
 func (r *groupRepository) Create(ctx context.Context, g domain.Group) (domain.Group, error) {

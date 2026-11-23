@@ -11,6 +11,7 @@ type ListGroupsByDepartmentRequest struct {
 type GroupResponse struct {
 	Code         string `json:"code"`
 	DepartmentID int64  `json:"department_id"`
+	StudentCount int64  `json:"student_count"`
 }
 
 type CreateGroupRequest struct {

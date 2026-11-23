@@ -53,5 +53,6 @@ func mapGroup(g domain.Group) groupdto.GroupResponse {
 	return groupdto.GroupResponse{
 		Code:         g.Code,
 		DepartmentID: g.DepartmentID,
+		StudentCount: g.StudentCount,
 	}
 }
