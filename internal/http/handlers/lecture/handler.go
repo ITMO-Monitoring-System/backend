@@ -69,7 +69,7 @@ func (h *LectureHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Param Authorization header string true "Bearer token"
 // @Param request body CreateLectureRequest true "Lecture details (teacher_id comes from the token)"
 // @Success 200 {object} LectureResponse
-// @Failure 400,401,403,404 {object} response.ErrorResponse
+// @Failure 400,401,403,404,409 {object} response.ErrorResponse
 // @Router /api/lectures/{id} [put]
 func (h *LectureHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := httputil.PathInt64(r, "id", mux.Vars(r))

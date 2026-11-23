@@ -128,6 +128,7 @@ services:
       rabbitmq-results: {condition: service_healthy}
     environment:
       EMBEDDING_SERVICE_URL: http://face_recognizing:8180/api/embedding
+      RECOGNIZING_STATUS_URL: http://face_recognizing:8180/api/lecture/status
     volumes:
       - /opt/itmo-monitoring/configs/backend.toml:/app/config.toml:ro
     healthcheck:

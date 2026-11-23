@@ -26,6 +26,8 @@ import (
 	"monitoring_backend/internal/service"
 	"monitoring_backend/internal/ws"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	httpHandler "monitoring_backend/internal/http/handlers"
@@ -35,9 +37,10 @@ import (
 )
 
 type App struct {
-	cfg    *config.Config
-	db     *pgxpool.Pool
-	server *http.Server
+	cfg            *config.Config
+	db             *pgxpool.Pool
+	server         *http.Server
+	lectureManager *lecture.Manager
 }
 
 func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App {
@@ -117,8 +120,9 @@ func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App 
 	handler = corsMiddleware(handler)
 
 	return &App{
-		cfg: cfg,
-		db:  db,
+		cfg:            cfg,
+		db:             db,
+		lectureManager: lectureManager,
 		server: &http.Server{
 			Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port),
 			Handler:      handler,
@@ -130,6 +134,14 @@ func New(cfg *config.Config, db *pgxpool.Pool, jwtManager *jwt.JWTManager) *App 
 }
 
 func (a *App) Run(ctx context.Context) error {
+	recoveryCtx, stopRecovery := context.WithCancel(ctx)
+	defer stopRecovery()
+	statusURL := strings.TrimSpace(os.Getenv("RECOGNIZING_STATUS_URL"))
+	if statusURL == "" {
+		statusURL = "http://face_recognizing:8180/api/lecture/status"
+	}
+	go a.lectureManager.Maintain(recoveryCtx, statusURL)
+
 	errCh := make(chan error, 1)
 
 	go func() {

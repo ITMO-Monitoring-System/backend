@@ -39,6 +39,8 @@ type SubjectRepository interface {
 }
 
 type LectureRepository interface {
+	InterruptRun(context.Context, int64, string) error
+	ListUnfinishedRuns(context.Context) ([]domain.LectureRun, error)
 	SetRunFinished(context.Context, int64, string, bool) error
 	Create(ctx context.Context, l domain.Lecture) (int64, error)
 	GetByID(ctx context.Context, id int64) (domain.Lecture, error)

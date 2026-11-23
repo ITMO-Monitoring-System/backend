@@ -94,3 +94,24 @@ func funcLookupLecture(id int64) lookupFunc {
 }
 
 func (f lookupFunc) SetRunFinished(context.Context, int64, string, bool) error { return nil }
+
+func (f lookupFunc) ListUnfinishedRuns(context.Context) ([]domain.LectureRun, error) { return nil, nil }
+
+func (f lookupFunc) InterruptRun(context.Context, int64, string) error { return nil }
+
+type finishedLookup struct{ lookupFunc }
+
+func (f finishedLookup) SetRunFinished(context.Context, int64, string, bool) error {
+	return domain.ErrLectureRunFinished
+}
+
+func TestDelayedStartDoesNotRestoreFinishedRun(t *testing.T) {
+	manager := NewManager(nil, "configured", finishedLookup{funcLookupLecture(7)})
+	manager.consume = func(context.Context, string, int64) { t.Error("finished run started a consumer") }
+	response := httptest.NewRecorder()
+	manager.StartLecture(response, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(
+		`{"lecture_id":7,"queue":"results","run_id":"finished"}`)))
+	if response.Code != http.StatusOK || len(manager.running) != 0 {
+		t.Fatalf("delayed start restored finished run: HTTP %d, %s", response.Code, response.Body)
+	}
+}

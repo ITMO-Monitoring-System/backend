@@ -20,6 +20,8 @@ import (
 )
 
 type lectureLookup interface {
+	InterruptRun(context.Context, int64, string) error
+	ListUnfinishedRuns(context.Context) ([]domain.LectureRun, error)
 	SetRunFinished(context.Context, int64, string, bool) error
 	GetByID(context.Context, int64) (domain.Lecture, error)
 }
@@ -37,6 +39,7 @@ type Manager struct {
 	hub      *ws.Hub
 	amqpURL  string
 	lectures lectureLookup
+	consume  func(context.Context, string, int64)
 }
 
 func NewManager(hub *ws.Hub, amqpURL string, lectures lectureLookup) *Manager {
@@ -45,6 +48,9 @@ func NewManager(hub *ws.Hub, amqpURL string, lectures lectureLookup) *Manager {
 		hub:      hub,
 		amqpURL:  amqpURL,
 		lectures: lectures,
+		consume: func(ctx context.Context, queue string, id int64) {
+			rabbit.StartConsumer(ctx, amqpURL, queue, id, hub)
+		},
 	}
 }
 
@@ -119,6 +125,10 @@ func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := m.lectures.SetRunFinished(r.Context(), req.LectureID, req.RunID, false); err != nil {
 		m.mu.Unlock()
+		if errors.Is(err, domain.ErrLectureRunFinished) {
+			response.WriteJSON(w, http.StatusOK, "Run already finished")
+			return
+		}
 		response.WriteError(w, http.StatusServiceUnavailable, "could not save lecture start")
 		return
 	}
@@ -135,7 +145,7 @@ func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 	m.mu.Unlock()
 
 	slog.Info("lecture_consumer_started", "service", "backend", "event", "lecture_consumer_started", "lecture_id", req.LectureID, "queue", req.Queue)
-	go rabbit.StartConsumer(ctx, m.amqpURL, req.Queue, req.LectureID, m.hub)
+	go m.consume(ctx, req.Queue, req.LectureID)
 
 	response.WriteJSON(w, http.StatusOK, "Consumer started")
 }

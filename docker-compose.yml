@@ -38,6 +38,7 @@ services:
         condition: service_healthy
     environment:
       DB_DSN: "postgres://admin:admin@db:5432/monitoring?sslmode=disable"
+      RECOGNIZING_STATUS_URL: http://face-service:8180/api/lecture/status
     ports:
       - "8080:8080"
     volumes:

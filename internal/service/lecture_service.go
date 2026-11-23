@@ -58,6 +58,22 @@ func (s *LectureService) save(ctx context.Context, id int64, req lectdto.CreateL
 				return err
 			}
 		} else {
+			// Run registration takes the same row lock. A concurrent start must
+			// either wait for this edit or become visible before the status check.
+			var lockedID int64
+			if err := tx.QueryRow(ctx, `SELECT id FROM universities_data.lectures
+                WHERE id = $1 AND teacher_id = $2 FOR UPDATE`, id, req.TeacherID).Scan(&lockedID); err != nil {
+				return err
+			}
+			var running bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (
+                SELECT 1 FROM universities_data.lecture_runs WHERE lecture_id = $1 AND NOT finished
+            )`, id).Scan(&running); err != nil {
+				return err
+			}
+			if running {
+				return domain.ErrLectureRunning
+			}
 			tag, err := tx.Exec(ctx, `UPDATE universities_data.lectures
                 SET date = $1, subject_id = $2
                 WHERE id = $3 AND teacher_id = $4`, req.Date, req.SubjectID, id, req.TeacherID)
