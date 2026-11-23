@@ -2365,6 +2365,9 @@ const docTemplate = `{
                 },
                 "department_id": {
                     "type": "integer"
+                },
+                "student_count": {
+                    "type": "integer"
                 }
             }
         },

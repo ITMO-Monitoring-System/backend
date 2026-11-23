@@ -8,4 +8,5 @@ var ErrGroupsNotFound = errors.New("groups not found")
 type Group struct {
 	Code         string
 	DepartmentID int64
+	StudentCount int64
 }

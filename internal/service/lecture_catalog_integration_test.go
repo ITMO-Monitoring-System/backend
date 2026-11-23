@@ -21,6 +21,7 @@ import (
 	"monitoring_backend/internal/domain"
 	"monitoring_backend/internal/http/middleware"
 
+	groupdto "monitoring_backend/internal/http/handlers/group"
 	dto "monitoring_backend/internal/http/handlers/lecture"
 	"monitoring_backend/internal/repository/postgres"
 	"monitoring_backend/internal/service"
@@ -40,9 +41,10 @@ func TestLectureCatalog(t *testing.T) {
 	}
 	defer db.Close()
 	_, err = db.Exec(ctx, `
-      INSERT INTO cores.users VALUES ('catalog-test','Catalog','Test',NULL);
-      INSERT INTO universities_data.departments(id,code,name) VALUES (9801,'T1','Catalog');
-      INSERT INTO universities_data.groups VALUES ('T1-A',9801),('T1-B',9801);
+      INSERT INTO cores.users VALUES ('catalog-test','Catalog','Test',NULL), ('catalog-student','Catalog','Student',NULL);
+      INSERT INTO universities_data.departments(id,code,name) VALUES (9801,'T1','Catalog'), (9802,'T2','Catalog 2');
+      INSERT INTO universities_data.groups VALUES ('T1-A',9801), ('T1-B',9801), ('T2-A',9802);
+      INSERT INTO universities_data.students_groups VALUES ('catalog-student','T1-A');
       INSERT INTO universities_data.subjects VALUES (9801,'Subject');`)
 	if err != nil {
 		t.Fatal(err)
@@ -51,31 +53,69 @@ func TestLectureCatalog(t *testing.T) {
 		_, err := db.Exec(ctx, `
        DELETE FROM universities_data.lectures_groups WHERE lecture_id IN (SELECT id FROM universities_data.lectures WHERE teacher_id='catalog-test');
        DELETE FROM universities_data.lectures WHERE teacher_id='catalog-test';
-       DELETE FROM universities_data.groups WHERE department_id=9801;
-       DELETE FROM universities_data.departments WHERE id=9801;
+       DELETE FROM universities_data.students_groups WHERE user_id='catalog-student';
+       DELETE FROM universities_data.groups WHERE department_id IN (9801,9802);
+       DELETE FROM universities_data.departments WHERE id IN (9801,9802);
        DELETE FROM universities_data.subjects WHERE id=9801;
-       DELETE FROM cores.users WHERE isu='catalog-test';`)
+       DELETE FROM cores.users WHERE isu IN ('catalog-test','catalog-student');`)
 		if err != nil {
 			t.Error(err)
 		}
 	}()
 	svc := service.NewLectureService(db)
 	repo := postgres.NewLectureRepository(db)
+	handler := dto.NewLectureHandler(svc)
+	router := mux.NewRouter()
+	router.HandleFunc("/api/lectures", handler.Create).Methods(http.MethodPost)
+	groupHandler := groupdto.NewGroupHandler(service.NewGroupService(postgres.NewGroupRepository(db)))
+	router.HandleFunc("/api/departments/{department_id:[0-9]+}/groups", groupHandler.ListByDepartment).Methods(http.MethodGet)
+	t.Run("department groups include enrolled student counts", func(t *testing.T) {
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/departments/9801/groups", nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("got HTTP %d: %s", response.Code, response.Body)
+		}
+		var groups []groupdto.GroupResponse
+		if err := json.Unmarshal(response.Body.Bytes(), &groups); err != nil {
+			t.Fatal(err)
+		}
+		want := []groupdto.GroupResponse{
+			{Code: "T1-A", DepartmentID: 9801, StudentCount: 1},
+			{Code: "T1-B", DepartmentID: 9801, StudentCount: 0},
+		}
+		if !slices.Equal(groups, want) {
+			t.Fatalf("got groups %+v, want %+v", groups, want)
+		}
+	})
 	now := time.Now().UTC().Truncate(time.Second)
-	req := dto.CreateLectureRequest{Date: now, TeacherID: "catalog-test", SubjectID: 9801, GroupIDs: []string{"T1-B", "T1-A"}}
-	item, err := svc.Create(ctx, req)
+	req := dto.CreateLectureRequest{Date: now, TeacherID: "catalog-test", SubjectID: 9801, GroupIDs: []string{"T2-A", "T1-A"}}
+	wantGroupIDs := []string{"T1-A", "T2-A"}
+	body, err := json.Marshal(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if item.Status != "scheduled" || item.SubjectName != "Subject" || !slices.Equal(item.DepartmentCodes, []string{"T1"}) {
-		t.Fatal(item)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/lectures", bytes.NewReader(body)))
+	if response.Code != http.StatusCreated {
+		t.Fatalf("creating a lecture across departments: got HTTP %d: %s", response.Code, response.Body)
+	}
+	var item dto.LectureResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &item); err != nil {
+		t.Fatal(err)
+	}
+	if item.Status != "scheduled" || item.SubjectName != "Subject" ||
+		!slices.Equal(item.GroupIDs, wantGroupIDs) || !slices.Equal(item.DepartmentIDs, []int64{9801, 9802}) ||
+		!slices.Equal(item.DepartmentCodes, []string{"T1", "T2"}) {
+		t.Fatalf("unexpected created lecture: %+v", item)
 	}
 	if err = repo.SetRunFinished(ctx, item.ID, "r1", false); err != nil {
 		t.Fatal(err)
 	}
-	byGroup, err := svc.ListByGroup(ctx, dto.ListLecturesByGroupRequest{GroupCode: "T1-B", From: now, To: now})
-	if err != nil || len(byGroup) != 1 || byGroup[0].Status != "running" || !slices.Equal(byGroup[0].GroupIDs, []string{"T1-A", "T1-B"}) {
-		t.Fatalf("group list: %v, %v", byGroup, err)
+	for _, groupCode := range wantGroupIDs {
+		byGroup, err := svc.ListByGroup(ctx, dto.ListLecturesByGroupRequest{GroupCode: groupCode, From: now, To: now})
+		if err != nil || len(byGroup) != 1 || byGroup[0].ID != item.ID || byGroup[0].Status != "running" || !slices.Equal(byGroup[0].GroupIDs, wantGroupIDs) {
+			t.Fatalf("group %s list: %v, %v", groupCode, byGroup, err)
+		}
 	}
 	t.Run("running lecture update returns HTTP 409 and changes nothing", func(t *testing.T) {
 		manager := auth.NewJWTManager("catalog-test", time.Minute)
@@ -83,8 +123,6 @@ func TestLectureCatalog(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		handler := dto.NewLectureHandler(svc)
-		router := mux.NewRouter()
 		router.Handle("/api/lectures/{id}", middleware.JWT(manager)(http.HandlerFunc(handler.Update))).Methods(http.MethodPut)
 		payload := req
 		payload.Date = now.Add(2 * time.Hour)
@@ -101,7 +139,7 @@ func TestLectureCatalog(t *testing.T) {
 			t.Fatalf("got HTTP %d: %s", response.Code, response.Body)
 		}
 		current, err := svc.GetByID(ctx, dto.GetLectureByIDRequest{ID: item.ID})
-		if err != nil || !current.Date.Equal(now) || !slices.Equal(current.GroupIDs, []string{"T1-A", "T1-B"}) {
+		if err != nil || !current.Date.Equal(now) || !slices.Equal(current.GroupIDs, wantGroupIDs) {
 			t.Fatalf("running lecture changed: %+v, %v", current, err)
 		}
 	})
