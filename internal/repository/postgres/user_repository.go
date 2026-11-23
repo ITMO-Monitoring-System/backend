@@ -344,6 +344,47 @@ func (u *userRepository) AddRole(ctx context.Context, isu, role string) error {
 	return err
 }
 
+// AddRoles inserts all roles for isu in a single transaction: either all of
+// them are assigned, or none are.
+func (u *userRepository) AddRoles(ctx context.Context, isu string, roles []string) (err error) {
+	isu = strings.TrimSpace(isu)
+
+	tx, err := u.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback(ctx)
+			panic(p)
+		} else if err != nil {
+			_ = tx.Rollback(ctx)
+		} else {
+			err = tx.Commit(ctx)
+		}
+	}()
+
+	for _, role := range roles {
+		if _, err = tx.Exec(ctx, `
+			INSERT INTO cores.users_roles (isu, role)
+			VALUES ($1, $2);
+		`, isu, role); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				if pgErr.Code == "23505" {
+					err = domain.ErrRoleAlreadyAssigned
+				} else if pgErr.Code == "23503" {
+					err = domain.ErrUserNotFound
+				}
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (u *userRepository) HasFaceImages(ctx context.Context, isu string) (bool, error) {
 	var exists bool
 	err := u.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM cores.face_images WHERE student_id = $1)`, isu).Scan(&exists)

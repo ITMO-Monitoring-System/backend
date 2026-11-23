@@ -22,7 +22,7 @@ import (
 type UserService interface {
 	AddUser(ctx context.Context, request AddUserRequest) error
 	AddUserFaces(ctx context.Context, request AddUserFacesRequest) error
-	AddUserRole(ctx context.Context, request AddUserRoleRequest) error
+	AddUserRoles(ctx context.Context, isu string, roles []string) ([]string, error)
 	GetUserRoles(ctx context.Context, isu string) ([]string, error)
 	ListUsers(ctx context.Context, limit, offset int, role string) ([]UserResponse, error)
 	DeleteUser(ctx context.Context, isu string) error
@@ -189,14 +189,14 @@ func writeAddFacesError(w http.ResponseWriter, err error) {
 }
 
 // AddRole godoc
-// @Summary      Добавить роль пользователю
-// @Description  Назначает роль пользователю. Принимает ISU и role в JSON.
+// @Summary      Добавить одну или несколько ролей пользователю
+// @Description  Назначает одну или несколько ролей пользователю атомарно (в одной транзакции). Принимает ISU и role (одна роль, для обратной совместимости) и/или roles (список) в JSON.
 // @Tags         users
 // @Accept       json
 // @Produce      json
 // @Param Authorization header string true "Bearer <JWT>"
-// @Param        request body AddUserRoleRequest true "ISU и роль для добавления"
-// @Success      201 {string} string "ok"
+// @Param        request body AddUserRoleRequest true "ISU и роль(и) для добавления"
+// @Success      201 {object} AddUserRolesResponse
 // @Failure      400 {object} response.ErrorResponse "Некорректный запрос"
 // @Failure      404 {object} response.ErrorResponse "Пользователь не найден"
 // @Failure      409 {object} response.ErrorResponse "Роль уже назначена"
@@ -218,26 +218,38 @@ func (h *UserHandler) AddRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.ISU = strings.TrimSpace(req.ISU)
-	req.Role = strings.TrimSpace(req.Role)
-
-	if req.ISU == "" || req.Role == "" {
-		response.WriteError(w, http.StatusBadRequest, "isu and role are required")
+	if req.ISU == "" {
+		response.WriteError(w, http.StatusBadRequest, "isu is required")
 		return
 	}
 
-	if err := h.userService.AddUserRole(r.Context(), req); err != nil {
+	roles := make([]string, 0, len(req.Roles)+1)
+	if strings.TrimSpace(req.Role) != "" {
+		roles = append(roles, req.Role)
+	}
+	roles = append(roles, req.Roles...)
+
+	if len(roles) == 0 {
+		response.WriteError(w, http.StatusBadRequest, "role or roles is required")
+		return
+	}
+
+	assigned, err := h.userService.AddUserRoles(r.Context(), req.ISU, roles)
+	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrRoleAlreadyAssigned):
 			response.WriteError(w, http.StatusConflict, "role already assigned")
 		case errors.Is(err, domain.ErrUserNotFound):
 			response.WriteError(w, http.StatusNotFound, "user not found")
+		case errors.Is(err, domain.ErrInvalidInput):
+			response.WriteError(w, http.StatusBadRequest, err.Error())
 		default:
 			httputil.WriteServiceError(w, err)
 		}
 		return
 	}
 
-	response.WriteJSON(w, http.StatusCreated, "ok")
+	response.WriteJSON(w, http.StatusCreated, AddUserRolesResponse{ISU: req.ISU, Roles: assigned})
 }
 
 // GetRoles godoc

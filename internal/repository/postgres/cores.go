@@ -23,6 +23,7 @@ type UserRepository interface {
 	GetFacesUpdatedAt(ctx context.Context, isu string) (time.Time, error)
 
 	AddRole(ctx context.Context, isu, role string) error
+	AddRoles(ctx context.Context, isu string, roles []string) error
 	GetRoles(ctx context.Context, isu string) ([]string, error)
 }
 
