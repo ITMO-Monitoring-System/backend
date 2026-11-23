@@ -23,6 +23,20 @@ jobs:
     name: Checks
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: catalog_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d catalog_test"
+          --health-interval 2s --health-timeout 5s --health-retries 15
+    env:
+      ITMO_TEST_CATALOG_DSN: postgres://postgres:test@localhost:5432/catalog_test?sslmode=disable
     steps:
       - uses: actions/checkout@v6
         with:
@@ -33,7 +47,12 @@ jobs:
           cache-dependency-path: go.sum
       - run: go mod download
       - run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/backend ./cmd/api
-      - run: go test ./internal/http/middleware ./internal/rabbit ./internal/ws ./internal/lecture
+      - name: Migrate disposable catalog database
+        run: |
+          for migration in migrations/*.up.sql; do
+            psql "$ITMO_TEST_CATALOG_DSN" -v ON_ERROR_STOP=1 --quiet --file "$migration"
+          done
+      - run: go test -race ./...
 
   image:
     name: Build and verify image

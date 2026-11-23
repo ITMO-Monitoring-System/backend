@@ -740,6 +740,81 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "lectures"
+                ],
+                "summary": "Update a lecture owned by the authenticated teacher",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Lecture ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer token",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Lecture details (teacher_id comes from the token)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/lecture.CreateLectureRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/lecture.LectureResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/practices": {
@@ -1336,15 +1411,13 @@ const docTemplate = `{
                         "type": "string",
                         "description": "RFC3339 start time",
                         "name": "from",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
                         "description": "RFC3339 end time",
                         "name": "to",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2328,11 +2401,35 @@ const docTemplate = `{
                 "date": {
                     "type": "string"
                 },
+                "department_codes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "department_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "group_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "id": {
                     "type": "integer"
                 },
+                "status": {
+                    "type": "string"
+                },
                 "subject_id": {
                     "type": "integer"
+                },
+                "subject_name": {
+                    "type": "string"
                 },
                 "teacher_id": {
                     "type": "string"
@@ -2345,6 +2442,18 @@ const docTemplate = `{
                 "date": {
                     "type": "string"
                 },
+                "department_codes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "department_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "group_ids": {
                     "type": "array",
                     "items": {
@@ -2354,8 +2463,14 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "status": {
+                    "type": "string"
+                },
                 "subject_id": {
                     "type": "integer"
+                },
+                "subject_name": {
+                    "type": "string"
                 },
                 "teacher_id": {
                     "type": "string"

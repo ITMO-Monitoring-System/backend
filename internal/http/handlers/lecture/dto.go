@@ -32,16 +32,15 @@ type ListLecturesByGroupRequest struct {
 }
 
 type LectureResponse struct {
-	ID        int64     `json:"id"`
-	Date      time.Time `json:"date"`
-	SubjectID int64     `json:"subject_id"`
-	TeacherID string    `json:"teacher_id"`
-	GroupIDs  []string  `json:"group_ids"`
+	ID              int64     `json:"id"`
+	Date            time.Time `json:"date"`
+	SubjectID       int64     `json:"subject_id"`
+	TeacherID       string    `json:"teacher_id"`
+	GroupIDs        []string  `json:"group_ids"`
+	SubjectName     string    `json:"subject_name"`
+	DepartmentIDs   []int64   `json:"department_ids"`
+	DepartmentCodes []string  `json:"department_codes"`
+	Status          string    `json:"status"`
 }
 
-type LectureListItemResponse struct {
-	ID        int64     `json:"id"`
-	Date      time.Time `json:"date"`
-	SubjectID int64     `json:"subject_id"`
-	TeacherID string    `json:"teacher_id"`
-}
+type LectureListItemResponse = LectureResponse

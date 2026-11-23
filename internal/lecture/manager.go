@@ -20,6 +20,9 @@ import (
 )
 
 type lectureLookup interface {
+	InterruptRun(context.Context, int64, string) error
+	ListUnfinishedRuns(context.Context) ([]domain.LectureRun, error)
+	SetRunFinished(context.Context, int64, string, bool) error
 	GetByID(context.Context, int64) (domain.Lecture, error)
 }
 
@@ -36,6 +39,7 @@ type Manager struct {
 	hub      *ws.Hub
 	amqpURL  string
 	lectures lectureLookup
+	consume  func(context.Context, string, int64)
 }
 
 func NewManager(hub *ws.Hub, amqpURL string, lectures lectureLookup) *Manager {
@@ -44,6 +48,9 @@ func NewManager(hub *ws.Hub, amqpURL string, lectures lectureLookup) *Manager {
 		hub:      hub,
 		amqpURL:  amqpURL,
 		lectures: lectures,
+		consume: func(ctx context.Context, queue string, id int64) {
+			rabbit.StartConsumer(ctx, amqpURL, queue, id, hub)
+		},
 	}
 }
 
@@ -110,12 +117,22 @@ func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 	}
 
 	m.mu.Lock()
-	if current, ok := m.running[req.LectureID]; ok {
-		if current.queue != req.Queue {
-			m.mu.Unlock()
-			response.WriteError(w, http.StatusConflict, "Lecture already consumes a different queue")
+	current, ok := m.running[req.LectureID]
+	if ok && current.queue != req.Queue {
+		m.mu.Unlock()
+		response.WriteError(w, http.StatusConflict, "Lecture already consumes a different queue")
+		return
+	}
+	if err := m.lectures.SetRunFinished(r.Context(), req.LectureID, req.RunID, false); err != nil {
+		m.mu.Unlock()
+		if errors.Is(err, domain.ErrLectureRunFinished) {
+			response.WriteJSON(w, http.StatusOK, "Run already finished")
 			return
 		}
+		response.WriteError(w, http.StatusServiceUnavailable, "could not save lecture start")
+		return
+	}
+	if ok {
 		current.runs[req.RunID] = struct{}{}
 		m.mu.Unlock()
 		response.WriteJSON(w, http.StatusOK, "Consumer already running")
@@ -128,7 +145,7 @@ func (m *Manager) StartLecture(w http.ResponseWriter, r *http.Request) {
 	m.mu.Unlock()
 
 	slog.Info("lecture_consumer_started", "service", "backend", "event", "lecture_consumer_started", "lecture_id", req.LectureID, "queue", req.Queue)
-	go rabbit.StartConsumer(ctx, m.amqpURL, req.Queue, req.LectureID, m.hub)
+	go m.consume(ctx, req.Queue, req.LectureID)
 
 	response.WriteJSON(w, http.StatusOK, "Consumer started")
 }
@@ -156,8 +173,16 @@ func (m *Manager) StopLecture(w http.ResponseWriter, r *http.Request) {
 	defer m.mu.Unlock()
 
 	current, ok := m.running[req.LectureID]
+	if err := m.lectures.SetRunFinished(r.Context(), req.LectureID, req.RunID, true); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			response.WriteError(w, http.StatusNotFound, "Lecture run not found")
+		} else {
+			response.WriteError(w, http.StatusServiceUnavailable, "could not save lecture stop")
+		}
+		return
+	}
 	if !ok {
-		response.WriteError(w, http.StatusNotFound, "Lecture not found")
+		response.WriteJSON(w, http.StatusOK, "ok")
 		return
 	}
 

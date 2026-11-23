@@ -88,10 +88,26 @@ definitions:
     properties:
       date:
         type: string
+      department_codes:
+        items:
+          type: string
+        type: array
+      department_ids:
+        items:
+          type: integer
+        type: array
+      group_ids:
+        items:
+          type: string
+        type: array
       id:
         type: integer
+      status:
+        type: string
       subject_id:
         type: integer
+      subject_name:
+        type: string
       teacher_id:
         type: string
     type: object
@@ -99,14 +115,26 @@ definitions:
     properties:
       date:
         type: string
+      department_codes:
+        items:
+          type: string
+        type: array
+      department_ids:
+        items:
+          type: integer
+        type: array
       group_ids:
         items:
           type: string
         type: array
       id:
         type: integer
+      status:
+        type: string
       subject_id:
         type: integer
+      subject_name:
+        type: string
       teacher_id:
         type: string
     type: object
@@ -872,33 +900,83 @@ paths:
   /api/lectures/{id}:
     get:
       parameters:
-      - description: Lecture ID
-        in: path
-        name: id
-        required: true
-        type: integer
+        - description: Lecture ID
+          in: path
+          name: id
+          required: true
+          type: integer
       produces:
-      - application/json
+        - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/lecture.LectureResponse'
-        "400":
+        '400':
           description: Bad Request
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-        "404":
+        '404':
           description: Not Found
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-        "500":
+        '500':
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResponse'
       summary: Get lecture by ID
       tags:
-      - lectures
+        - lectures
+    put:
+      consumes:
+        - application/json
+      parameters:
+        - description: Lecture ID
+          in: path
+          name: id
+          required: true
+          type: integer
+        - description: Bearer token
+          in: header
+          name: Authorization
+          required: true
+          type: string
+        - description: Lecture details (teacher_id comes from the token)
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/lecture.CreateLectureRequest'
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/lecture.LectureResponse'
+        '400':
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '401':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '403':
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '404':
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        '409':
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Update a lecture owned by the authenticated teacher
+      tags:
+        - lectures
   /api/practices:
     post:
       consumes:
@@ -1280,41 +1358,39 @@ paths:
   /api/teachers/{isu}/lectures:
     get:
       parameters:
-      - description: Teacher ISU
-        in: path
-        name: isu
-        required: true
-        type: string
-      - description: RFC3339 start time
-        in: query
-        name: from
-        required: true
-        type: string
-      - description: RFC3339 end time
-        in: query
-        name: to
-        required: true
-        type: string
+        - description: Teacher ISU
+          in: path
+          name: isu
+          required: true
+          type: string
+        - description: RFC3339 start time
+          in: query
+          name: from
+          type: string
+        - description: RFC3339 end time
+          in: query
+          name: to
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
               $ref: '#/definitions/lecture.LectureListItemResponse'
             type: array
-        "400":
+        '400':
           description: Bad Request
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-        "500":
+        '500':
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResponse'
       summary: List lectures by teacher
       tags:
-      - lectures
+        - lectures
   /api/teachers/{isu}/practices:
     get:
       parameters:
